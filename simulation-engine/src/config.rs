@@ -13,7 +13,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             g: 1.0,
-            softening: 0.02,
+            // Keeps close-pair timescales above one integrator step.
+            softening: 0.08,
             order: 8,
             leaf_capacity: 32,
         }

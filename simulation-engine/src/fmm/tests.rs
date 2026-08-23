@@ -10,20 +10,11 @@ use crate::complex::Complex;
 use crate::config::Distribution;
 use crate::sim::Particles;
 use crate::testutil::{clone_layout, clustered_particles, direct_acc, rel_l2_error, Deadline};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 const ORDER: usize = 8;
 const LEAF_CAPACITY: usize = 32;
 const EPS2: f32 = 1e-6;
-
-fn tree_maps(tree: &FmmTree) -> Vec<HashMap<(i64, i64), u32>> {
-    let mut maps: Vec<HashMap<(i64, i64), u32>> =
-        vec![HashMap::new(); tree.level_ranges.len()];
-    for (id, node) in tree.nodes.iter().enumerate() {
-        maps[node.depth as usize].insert((node.gx, node.gy), id as u32);
-    }
-    maps
-}
 
 #[allow(clippy::too_many_arguments)] // test fixture: every Node field is set by hand
 fn nd(
@@ -42,6 +33,8 @@ fn nd(
     Node {
         cx,
         cy,
+        ex: cx,
+        ey: cy,
         half,
         parent,
         children,
@@ -246,8 +239,7 @@ fn staged_passes_match_production() {
 
         // build already ran the upward pass; repeat only M2L and L2L here.
         let mut tb = FmmTree::build(&p, order, LEAF_CAPACITY);
-        let maps = tree_maps(&tb);
-        let (m2l_lists, _near) = tb.classify_interactions(&maps);
+        let (m2l_lists, _near) = tb.classify_interactions();
         tb.interaction_pass(order, &binom, &m2l_lists);
         tb.downward_pass(&binom);
 
@@ -269,8 +261,7 @@ fn partition_covers_each_particle_once() {
         ("clustered", clustered_particles(400, 7)),
     ] {
         let tree = FmmTree::build(&p, ORDER, LEAF_CAPACITY);
-        let maps = tree_maps(&tree);
-        let (m2l_lists, near_lists) = tree.classify_interactions(&maps);
+        let (m2l_lists, near_lists) = tree.classify_interactions();
 
         let mut members: Vec<usize> = Vec::new();
         let mut chain: Vec<usize> = Vec::new();

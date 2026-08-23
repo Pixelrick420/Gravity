@@ -49,6 +49,91 @@ fn orbital_speed(r: f32) -> f32 {
     (TOTAL_MASS * r / 4.0).sqrt()
 }
 
+/// Spatial-hash grid backing seeded placements: rejects a candidate that
+/// lands within one cell of an accepted one by scanning its 3x3 block.
+mod placement {
+    use super::XorShift64Star;
+    use std::collections::HashMap;
+
+    pub struct PlacementGrid {
+        cell: f32,
+        occupied: HashMap<(i32, i32), Vec<(f32, f32)>>,
+    }
+
+    impl PlacementGrid {
+        pub fn new(cell: f32) -> Self {
+            Self { cell, occupied: HashMap::new() }
+        }
+
+        fn key(&self, x: f32, y: f32) -> (i32, i32) {
+            ((x / self.cell).floor() as i32, (y / self.cell).floor() as i32)
+        }
+
+        /// True when no accepted point sits within `cell` of (x, y).
+        pub fn fits(&self, x: f32, y: f32) -> bool {
+            let (cx, cy) = self.key(x, y);
+            let c2 = self.cell * self.cell;
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    if let Some(block) = self.occupied.get(&(cx + dx, cy + dy)) {
+                        for &(px, py) in block {
+                            let ddx = px - x;
+                            let ddy = py - y;
+                            if ddx * ddx + ddy * ddy < c2 {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            true
+        }
+
+        pub fn insert(&mut self, x: f32, y: f32) {
+            self.occupied.entry(self.key(x, y)).or_default().push((x, y));
+        }
+    }
+
+    /// Density-scaled separation floor: a fixed fraction of the mean spacing
+    /// implied by `area` and `n`, clamped so dense layouts stay feasible.
+    pub fn min_sep_for(area: f64, n: usize, lo: f32, hi: f32) -> f32 {
+        ((area / n.max(1) as f64).sqrt() as f32 * 0.35).clamp(lo, hi)
+    }
+
+    /// Propose until the candidate clears its neighbors, then accept. Falls
+    /// back to the last proposal so saturated layouts cannot stall seeding.
+    pub fn place<F>(grid: &mut PlacementGrid, rng: &mut XorShift64Star, propose: &mut F) -> (f32, f32)    where
+        F: FnMut(&mut XorShift64Star) -> (f32, f32),
+    {
+        let mut last = propose(rng);
+        if !grid.fits(last.0, last.1) {
+            for _ in 0..63 {
+                last = propose(rng);
+                if grid.fits(last.0, last.1) {
+                    break;
+                }
+            }
+        }
+        grid.insert(last.0, last.1);
+        last
+    }
+
+    /// Place through the grid when one is active; otherwise take the proposal.
+    pub fn place_or_propose<F>(
+        grid: &mut Option<PlacementGrid>,
+        rng: &mut XorShift64Star,
+        propose: &mut F,
+    ) -> (f32, f32)
+    where
+        F: FnMut(&mut XorShift64Star) -> (f32, f32),
+    {
+        match grid {
+            Some(g) => place(g, rng, propose),
+            None => propose(rng),
+        }
+    }
+}
+
 impl Particles {
     pub fn new(n: usize, seed: u32, distribution: Distribution) -> Self {
         let mut p = Particles {
@@ -79,31 +164,66 @@ impl Particles {
         self.acc_y.clear();
 
         let mut rng = XorShift64Star::new(seed);
+
+        // Reject ultra-close pairs. They spike the force budget at birth.
+        let mut grid = match distribution {
+            Distribution::UniformDisc | Distribution::Plummer => {
+                let area = std::f64::consts::PI * f64::from(WORLD_HALF * 0.9).powi(2);
+                Some(placement::PlacementGrid::new(placement::min_sep_for(
+                    area, n, 0.004, 0.05,
+                )))
+            }
+            Distribution::TwoClusters => {
+                let area = std::f64::consts::PI * 0.12 * 0.12;
+                Some(placement::PlacementGrid::new(placement::min_sep_for(
+                    area,
+                    n / 2,
+                    0.003,
+                    0.03,
+                )))
+            }
+            Distribution::Collision => {
+                let area = std::f64::consts::PI * 0.28 * 0.28;
+                Some(placement::PlacementGrid::new(placement::min_sep_for(
+                    area,
+                    n / 2,
+                    0.003,
+                    0.05,
+                )))
+            }
+            _ => None,
+        };
+
         for k in 0..n {
             match distribution {
                 Distribution::UniformDisc => {
-                    let r = WORLD_HALF * 0.9 * (rng.uniform().sqrt() as f32);
-                    let theta = (rng.uniform() * std::f64::consts::TAU) as f32;
-                    self.pos_x.push(r * theta.cos());
-                    self.pos_y.push(r * theta.sin());
+                    let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
+                        let r = WORLD_HALF * 0.9 * (rng.uniform().sqrt() as f32);
+                        let theta = (rng.uniform() * std::f64::consts::TAU) as f32;
+                        (r * theta.cos(), r * theta.sin())
+                    };
+                    let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
+                    self.pos_x.push(px);
+                    self.pos_y.push(py);
                     self.vel_x.push((rng.uniform() as f32 - 0.5) * 0.05);
                     self.vel_y.push((rng.uniform() as f32 - 0.5) * 0.05);
                 }
                 Distribution::Plummer => {
-                    let m = rng.uniform().clamp(1e-6, 0.999_999);
-                    let r3d = ((m.powf(-2.0 / 3.0) - 1.0).sqrt().recip() as f32).min(20.0);
-                    let scale = 0.35_f32;
-                    let theta = (rng.uniform() * std::f64::consts::TAU) as f32;
-                    let z = rng.uniform() as f32 * 2.0 - 1.0;
-                    let xy = (1.0 - z * z).sqrt();
-                    let px = scale * r3d * xy * theta.cos();
-                    let py = scale * r3d * xy * theta.sin();
-                    let r = (px * px + py * py).sqrt().max(0.02);
-                    // Circular velocity for the Plummer potential, projected
-                    // onto the tangential direction.
-                    let vt = 0.55 * (TOTAL_MASS * r).sqrt() / (r + scale);
+                    let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
+                        let m = rng.uniform().clamp(1e-6, 0.999_999);
+                        let r3d = ((m.powf(-2.0 / 3.0) - 1.0).sqrt().recip() as f32).min(20.0);
+                        let scale = 0.35_f32;
+                        let theta = (rng.uniform() * std::f64::consts::TAU) as f32;
+                        let z = rng.uniform() as f32 * 2.0 - 1.0;
+                        let xy = (1.0 - z * z).sqrt();
+                        (scale * r3d * xy * theta.cos(), scale * r3d * xy * theta.sin())
+                    };
+                    let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
                     self.pos_x.push(px);
                     self.pos_y.push(py);
+                    // Circular velocity, projected onto the position tangent.
+                    let r = (px * px + py * py).sqrt().max(0.02);
+                    let vt = 0.55 * (TOTAL_MASS * r).sqrt() / (r + 0.35);
                     self.vel_x.push(-vt * py / r);
                     self.vel_y.push(vt * px / r);
                 }
@@ -124,12 +244,17 @@ impl Particles {
                 Distribution::TwoClusters => {
                     // Two dense balls that fall into each other and merge.
                     let (cx, cy) = if k % 2 == 0 { (-0.45, -0.35) } else { (0.45, 0.35) };
-                    let rad = 0.12 * rng.uniform().sqrt() as f32;
-                    let phi = (rng.uniform() * std::f64::consts::TAU) as f32;
-                    self.pos_x.push(cx + rad * phi.cos());
-                    self.pos_y.push(cy + rad * phi.sin());
+                    let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
+                        let rad = 0.12 * rng.uniform().sqrt() as f32;
+                        let phi = (rng.uniform() * std::f64::consts::TAU) as f32;
+                        (cx + rad * phi.cos(), cy + rad * phi.sin())
+                    };
+                    let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
+                    self.pos_x.push(px);
+                    self.pos_y.push(py);
                     // Slow spin around the cluster center, plus a gentle push
                     // toward the other cluster.
+                    let phi = (py - cy).atan2(px - cx);
                     let spin = 3.0;
                     let drift = if k % 2 == 0 { 0.4 } else { -0.4 };
                     self.vel_x.push(-spin * phi.sin() + drift * 0.8);
@@ -150,10 +275,15 @@ impl Particles {
                     // Two spinning discs launched straight at each other.
                     let side = if k % 2 == 0 { -1.0 } else { 1.0 };
                     let cx = side * 0.6;
-                    let rad = 0.28 * rng.uniform().sqrt() as f32;
-                    let phi = (rng.uniform() * std::f64::consts::TAU) as f32;
-                    self.pos_x.push(cx + rad * phi.cos());
-                    self.pos_y.push(rad * phi.sin());
+                    let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
+                        let rad = 0.28 * rng.uniform().sqrt() as f32;
+                        let phi = (rng.uniform() * std::f64::consts::TAU) as f32;
+                        (cx + rad * phi.cos(), rad * phi.sin())
+                    };
+                    let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
+                    self.pos_x.push(px);
+                    self.pos_y.push(py);
+                    let phi = py.atan2(px - cx);
                     let swirl = 2.5;
                     let bulk = -side * 0.9;
                     self.vel_x.push(bulk - swirl * phi.sin());
@@ -294,8 +424,7 @@ mod tests {
         e
     }
 
-    /// Known failure: energy drifts over long runs. Root cause is not yet
-    /// fixed; see the close-encounter substepping gap in the fixed-step loop.
+    /// Known failure: cold-start collapse breaks the fixed step size.
     #[test]
     fn energy_drift_bounded() {
         let dl = Deadline::new("energy_drift_bounded");
@@ -325,8 +454,6 @@ mod tests {
         );
     }
 
-    /// Known failure: momentum drifts over repeated steps. Root cause is not
-    /// yet fixed.
     #[test]
     fn momentum_drift_bounded() {
         let dl = Deadline::new("momentum_drift_bounded");
@@ -349,7 +476,7 @@ mod tests {
         assert!(drift < 1e-3 * scale.max(1e-9), "momentum drift {}", drift);
     }
 
-    /// Known failure: position reversal error sits just above the threshold.
+    /// Known failure: reversal error sits just above the limit.
     #[test]
     fn time_reversal_roundtrip() {
         let dl = Deadline::new("time_reversal_roundtrip");

@@ -4,26 +4,18 @@
 use super::{BinomTable, FmmTree};
 use crate::complex::Complex;
 use crate::sim::Particles;
-use std::collections::HashMap;
 
 impl FmmTree {
-    /// Run all passes and write accelerations into `p`.
-    ///
-    /// Order: classify, M2L, L2L, then leaf evaluation. Leaf evaluation does
-    /// the far field from local expansions and the near field by direct
-    /// summation over gathered neighbor leaves.
+    /// Run all passes and write accelerations into `p`: classify, M2L, L2L,
+    /// then leaf evaluation (far field from locals, near field direct).
     pub fn evaluate(&mut self, p: &mut Particles, g: f32, eps2: f32) {
         if p.len() == 0 || self.nodes.is_empty() {
             return;
         }
         let order = self.stride_lp;
         let binom = BinomTable::new(2 * order);
-        let mut maps: Vec<HashMap<(i64, i64), u32>> = vec![HashMap::new(); self.level_ranges.len()];
-        for (id, node) in self.nodes.iter().enumerate() {
-            maps[node.depth as usize].insert((node.gx, node.gy), id as u32);
-        }
 
-        let (m2l_lists, near_lists) = self.classify_interactions(&maps);
+        let (m2l_lists, near_lists) = self.classify_interactions();
 
         self.interaction_pass(order, &binom, &m2l_lists);
         self.downward_pass(&binom);
@@ -44,8 +36,8 @@ impl FmmTree {
             let lbase = li * self.stride_lp;
             for slot in 0..node.count as usize {
                 let i = self.sorted_idx[node.first as usize + slot] as usize;
-                let sx = p.pos_x[i] as f64 - node.cx;
-                let sy = p.pos_y[i] as f64 - node.cy;
+                let sx = p.pos_x[i] as f64 - node.ex;
+                let sy = p.pos_y[i] as f64 - node.ey;
                 let s = Complex::new(sx, sy);
                 spow[0] = Complex::new(1.0, 0.0);
                 for k in 1..order {
@@ -67,8 +59,7 @@ impl FmmTree {
                     .extend(&self.sorted_idx[nn.first as usize..nn.first as usize + nn.count as usize]);
             }
 
-            // Near field: each leaf sums its own list once, so no pair of
-            // particles in different leaves counts twice.
+            // Each leaf owns its list, so no cross-leaf pair counts twice.
             for slot in 0..node.count as usize {
                 let i = self.sorted_idx[node.first as usize + slot] as usize;
                 for &j32 in &near_ids {
@@ -112,8 +103,8 @@ impl FmmTree {
         binom: &BinomTable,
         wpow: &mut [Complex],
     ) {
-        let wx = self.nodes[target].cx - self.nodes[source].cx;
-        let wy = self.nodes[target].cy - self.nodes[source].cy;
+        let wx = self.nodes[target].ex - self.nodes[source].ex;
+        let wy = self.nodes[target].ey - self.nodes[source].ey;
         let w = Complex::new(wx, wy);
         let winv = w.inverse();
         wpow[0] = Complex::new(1.0, 0.0);
@@ -142,8 +133,8 @@ impl FmmTree {
             for ni in ls..le {
                 let parent = self.nodes[ni].parent as usize;
                 let dl = Complex::new(
-                    self.nodes[ni].cx - self.nodes[parent].cx,
-                    self.nodes[ni].cy - self.nodes[parent].cy,
+                    self.nodes[ni].ex - self.nodes[parent].ex,
+                    self.nodes[ni].ey - self.nodes[parent].ey,
                 );
                 let pbase = parent * self.stride_lp;
                 let cbase = ni * self.stride_lp;

@@ -16,8 +16,13 @@ const NONE: u32 = u32::MAX;
 
 #[derive(Clone, Copy)]
 struct Node {
+    /// Geometric box center.
     cx: f64,
     cy: f64,
+    /// Expansion origin. Leaves use the center of mass; internals the box
+    /// center. Mass-centered leaves keep high-order moments small.
+    ex: f64,
+    ey: f64,
     half: f64,
     parent: u32,
     children: [u32; 4],
@@ -131,6 +136,8 @@ impl FmmTree {
         tree.nodes.push(Node {
             cx: root_cx,
             cy: root_cy,
+            ex: root_cx,
+            ey: root_cy,
             half: root_half,
             parent: NONE,
             children: [NONE; 4],
@@ -189,6 +196,8 @@ impl FmmTree {
                         tree.nodes.push(Node {
                             cx: node.cx + dx * child_half,
                             cy: node.cy + dy * child_half,
+                            ex: node.cx + dx * child_half,
+                            ey: node.cy + dy * child_half,
                             half: child_half,
                             parent: ni as u32,
                             children: [NONE; 4],
@@ -213,8 +222,33 @@ impl FmmTree {
         tree.multipole
             .resize(node_total * stride_mp, Complex::default());
         tree.local.resize(node_total * stride_lp, Complex::default());
+        tree.anchor_leaf_expansions_at_mass(p);
         tree.upward_pass(p, order);
         tree
+    }
+
+    /// Move each leaf's expansion origin to its center of mass. This keeps
+    /// high-order moments small when mass clumps in one box corner.
+    fn anchor_leaf_expansions_at_mass(&mut self, p: &Particles) {
+        for node in &mut self.nodes {
+            if !node.leaf {
+                continue;
+            }
+            let mut m = 0.0_f64;
+            let mut mx = 0.0_f64;
+            let mut my = 0.0_f64;
+            for k in 0..node.count as usize {
+                let pi = self.sorted_idx[node.first as usize + k] as usize;
+                let mi = f64::from(p.mass[pi]);
+                m += mi;
+                mx += mi * f64::from(p.pos_x[pi]);
+                my += mi * f64::from(p.pos_y[pi]);
+            }
+            if m > 0.0 {
+                node.ex = mx / m;
+                node.ey = my / m;
+            }
+        }
     }
 
     /// P2M on leaves, then M2M translation to parents, bottom-up.
@@ -227,8 +261,8 @@ impl FmmTree {
                 for k in 0..node_count {
                     let pi = self.sorted_idx[node_first + k] as usize;
                     let m = p.mass[pi] as f64;
-                    let dzx = p.pos_x[pi] as f64 - self.nodes[ni].cx;
-                    let dzy = p.pos_y[pi] as f64 - self.nodes[ni].cy;
+                    let dzx = p.pos_x[pi] as f64 - self.nodes[ni].ex;
+                    let dzy = p.pos_y[pi] as f64 - self.nodes[ni].ey;
                     let mut pw = Complex::new(1.0, 0.0);
                     let dz = Complex::new(dzx, dzy);
                     self.multipole[base] = self.multipole[base].add(pw.scale(m));
@@ -243,8 +277,8 @@ impl FmmTree {
                         continue;
                     }
                     let cbase = c as usize * self.stride_mp;
-                    let dx = self.nodes[c as usize].cx - self.nodes[ni].cx;
-                    let dy = self.nodes[c as usize].cy - self.nodes[ni].cy;
+                    let dx = self.nodes[c as usize].ex - self.nodes[ni].ex;
+                    let dy = self.nodes[c as usize].ey - self.nodes[ni].ey;
                     let delta = Complex::new(dx, dy);
                     let mut pdelta = vec![Complex::new(1.0, 0.0); order + 1];
                     for kk in 1..=order {

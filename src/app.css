@@ -1,0 +1,39 @@
+@import 'tailwindcss';
+
+@theme {
+  /* dark-only space theme; oklch with hex approximations for reference */
+  --color-void: oklch(11% 0.02 268); /* #0a0c14 backdrop */
+  --color-surface: oklch(17% 0.022 267); /* #141826 panels */
+  --color-surface-hover: oklch(22% 0.025 266); /* #1c2130 hover */
+  --color-edge: oklch(28% 0.03 266); /* #262d42 borders */
+  --color-edge-strong: oklch(38% 0.05 268); /* #3a4462 strong borders */
+  --color-ink: oklch(88% 0.02 264); /* #dbe2f5 primary text */
+  --color-muted: oklch(58% 0.03 264); /* #6b7490 secondary text */
+  --color-faint: oklch(42% 0.025 264); /* #4d5673 hints */
+  --color-accent: oklch(72% 0.14 250); /* #5aa2ff highlights */
+  --color-danger: oklch(70% 0.16 20); /* #ff8a94 errors */
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+@layer components {
+  /* Panel row grid: label | input | readout. */
+  .panel-row {
+    @apply grid grid-cols-[92px_1fr_44px] items-center gap-2;
+    & select {
+      @apply col-span-2;
+    }
+  }
+
+  .btn {
+    @apply cursor-pointer rounded-md border border-edge bg-surface px-3 py-2 text-ink transition-colors hover:bg-surface-hover;
+  }
+}

@@ -25,9 +25,10 @@ body {
 }
 
 @layer components {
-  /* Panel row grid: label | input | readout. */
+  /* Panel row grid: label | input | readout. minmax(0,1fr) keeps the
+     range input's intrinsic width from forcing the row to overflow. */
   .panel-row {
-    @apply grid grid-cols-[92px_1fr_44px] items-center gap-2;
+    @apply grid grid-cols-[92px_minmax(0,1fr)_44px] items-center gap-2;
     & select {
       @apply col-span-2;
     }

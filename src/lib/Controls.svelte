@@ -55,7 +55,7 @@
   }
 </script>
 
-<aside class="flex h-full w-72 shrink-0 flex-col gap-2 overflow-y-auto border-l border-edge bg-surface/90 p-4 text-sm text-ink">
+<aside class="flex max-h-[45dvh] w-full shrink-0 flex-col gap-2 overflow-y-auto border-t border-edge bg-surface/90 p-4 text-sm text-ink sm:h-full sm:max-h-none sm:w-72 sm:border-t-0 sm:border-l">
   <h1 class="m-0 text-xl font-semibold tracking-[0.35em]">GRAVITY</h1>
   <p class="mb-2 mt-0 text-xs text-muted">FMM N-body sandbox</p>
 
@@ -77,7 +77,7 @@
   {#each sliders as spec (spec.key)}
     <label class="panel-row">
       <span>{spec.label}</span>
-      <input class="accent-accent" type="range" min={spec.min} max={spec.max} step={spec.step} bind:value={simParams[spec.key]} />
+      <input class="min-w-0 w-full accent-accent" type="range" min={spec.min} max={spec.max} step={spec.step} bind:value={simParams[spec.key]} />
       <output>{(spec.format ?? String)(simParams[spec.key])}</output>
     </label>
   {/each}

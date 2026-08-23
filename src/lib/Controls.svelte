@@ -55,7 +55,7 @@
   }
 </script>
 
-<aside class="flex max-h-[45dvh] w-full shrink-0 flex-col gap-2 overflow-y-auto border-t border-edge bg-surface/90 p-4 text-sm text-ink sm:h-full sm:max-h-none sm:w-72 sm:border-t-0 sm:border-l">
+<aside class="absolute inset-x-0 bottom-0 z-20 flex max-h-[45dvh] w-full flex-col gap-2 overflow-y-auto border-t border-edge bg-surface/90 p-4 text-sm text-ink shadow-xl backdrop-blur-sm sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-72 sm:border-t-0 sm:border-l">
   <h1 class="m-0 text-xl font-semibold tracking-[0.35em]">GRAVITY</h1>
   <p class="mb-2 mt-0 text-xs text-muted">FMM N-body sandbox</p>
 

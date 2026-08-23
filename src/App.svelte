@@ -13,7 +13,7 @@
   let fps = $state(0);
   let error = $state<string | null>(null);
   let canvasReady = $state(false);
-  let panelOpen = $state(true);
+  let panelOpen = $state(false);
 
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
     const msg = ev.data;
@@ -42,8 +42,8 @@
   <title>Gravity</title>
 </svelte:head>
 
-<main class="flex h-dvh w-full flex-col overflow-hidden bg-void font-sans text-ink sm:flex-row">
-  <div class="relative min-w-0 flex-1">
+<main class="relative h-dvh w-full overflow-hidden bg-void font-sans text-ink">
+  <div class="absolute inset-0">
     <SimCanvas {worker} />
     {#if !canvasReady}
       <div class="pointer-events-none absolute inset-0 grid place-items-center text-sm tracking-[0.2em] text-faint">
@@ -56,7 +56,7 @@
     <button
       type="button"
       aria-label={panelOpen ? 'Hide controls' : 'Show controls'}
-      class="absolute top-2.5 right-3 z-10 grid size-9 cursor-pointer place-items-center rounded-md border border-edge bg-surface/90 text-ink transition-colors hover:bg-surface-hover"
+      class="absolute top-2.5 right-3 z-30 grid size-9 cursor-pointer place-items-center rounded-md border border-edge bg-surface/90 text-ink transition-colors hover:bg-surface-hover"
       onclick={() => (panelOpen = !panelOpen)}
     >
       {#if panelOpen}

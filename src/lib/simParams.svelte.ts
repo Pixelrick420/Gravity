@@ -3,7 +3,7 @@ import { DEFAULT_PARAMS, speedFromSlider, speedToSlider } from './constants';
 /** Reactive mirror of DEFAULT_PARAMS. speed is internal; speedUi is 0-100. */
 export class SimParams {
   count = $state(DEFAULT_PARAMS.count);
-  seed = $state(DEFAULT_PARAMS.seed);
+  seed = $state(Math.floor(Math.random() * 1_000_000));
   distribution = $state(DEFAULT_PARAMS.distribution);
   dt = $state(DEFAULT_PARAMS.dt);
   speed = $state(DEFAULT_PARAMS.speed);

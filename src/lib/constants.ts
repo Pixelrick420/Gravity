@@ -56,7 +56,6 @@ export const ZOOM_FACTOR = 0.1;
 
 export const DEFAULT_PARAMS = {
   count: 595,
-  seed: 7,
   distribution: 'uniformDisc' as Distribution,
   dt: 0.001,
   speed: speedFromSlider(17),

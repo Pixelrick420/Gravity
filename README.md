@@ -25,6 +25,4 @@ engine.
 ## Deploy
 
 Every push to `main` runs tests, builds the wasm engine and the site, and
-publishes to GitHub Pages. The site lives at `/Gravity/` on
-`pixelrick420.github.io`. Enable it once in the repository settings:
-**Settings → Pages → Source: GitHub Actions**.
+publishes to GitHub Pages. The site lives at `pixelrick420.github.io/Gravity`. 

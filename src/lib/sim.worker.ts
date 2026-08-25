@@ -13,6 +13,7 @@ import {
   GRID_REFRESH_MAX_INTERVAL,
   MAX_SUBSTEPS,
   STATS_INTERVAL_MS,
+  TOTAL_MASS_SCALE,
 } from './constants';
 import { zoomOf } from './world';
 import type { TrailSegments } from './renderer';
@@ -56,6 +57,20 @@ function applyPatch(patch: ParamsPatch) {
   Object.assign(state.params, patch);
 }
 
+function scaleParticleMasses(sim: Simulation, particleSize: number) {
+  const count = sim.count();
+  const len = count * FLOATS_PER_PARTICLE;
+  const view = new Float32Array(state.wasm!.memory.buffer, sim.particles_ptr(), len);
+  const scale = Math.pow(particleSize, TOTAL_MASS_SCALE);
+  let massSum = 0;
+  for (let i = 0; i < count; i++) massSum += view[i * FLOATS_PER_PARTICLE + 4];
+  if (massSum > 0) {
+    const target = 1000 * scale;
+    const norm = target / massSum;
+    for (let i = 0; i < count; i++) view[i * FLOATS_PER_PARTICLE + 4] *= norm;
+  }
+}
+
 let lastT = 0;
 let fpsEma = 60;
 let lastStatsPost = 0;
@@ -92,7 +107,7 @@ function frame(t: number) {
     let simDeltaMs = executed * stepMs + (alpha - prevRenderAlpha) * stepMs;
     prevRenderAlpha = alpha;
     if (simDeltaMs < 0) simDeltaMs = 0;
-    state.simDeltaMs = simDeltaMs;
+    state.simDeltaMs = simDeltaMs * Math.sqrt(state.params.speed / 0.011);
   } catch (err) {
     if (!state.halted) {
       state.halted = true;
@@ -203,6 +218,8 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
         state.params.count = msg.count;
         state.params.seed = msg.seed;
         state.params.distribution = msg.distribution;
+        state.params.particleSize = msg.particleSize;
+        scaleParticleMasses(state.sim!, msg.particleSize);
       } catch (err) {
         reportError(err);
       }

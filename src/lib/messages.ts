@@ -25,7 +25,7 @@ export type ParamsPatch = Partial<
 export type ToWorker =
   | { type: 'init'; canvas: OffscreenCanvas; width: number; height: number; dpr: number }
   | { type: 'params'; patch: ParamsPatch }
-  | { type: 'reset'; count: number; seed: number; distribution: Distribution }
+  | { type: 'reset'; count: number; seed: number; distribution: Distribution; particleSize: number }
   | { type: 'resize'; width: number; height: number; dpr: number };
 
 export type FromWorker =

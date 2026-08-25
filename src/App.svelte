@@ -15,6 +15,24 @@
   let canvasReady = $state(false);
   let panelOpen = $state(false);
 
+  const post = (msg: ToWorker) => worker.postMessage(msg);
+
+  let lastApplied = $state({
+    count: Math.round(simParams.count),
+    seed: Math.round(simParams.seed),
+    distribution: simParams.distribution,
+    speed: simParams.speed,
+    particleSize: simParams.particleSize,
+  });
+
+  const hasPendingChanges = $derived(
+    lastApplied.count !== Math.round(simParams.count) ||
+    lastApplied.seed !== Math.round(simParams.seed) ||
+    lastApplied.distribution !== simParams.distribution ||
+    lastApplied.speed !== simParams.speed ||
+    lastApplied.particleSize !== simParams.particleSize,
+  );
+
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
     const msg = ev.data;
     if (msg.type === 'stats') {
@@ -27,16 +45,27 @@
   };
 
   function dismissError() {
-    worker.postMessage({
+    post({
       type: 'reset',
       count: Math.round(simParams.count),
       seed: Math.round(simParams.seed),
       distribution: simParams.distribution,
+      particleSize: simParams.particleSize,
     } satisfies ToWorker);
     simParams.paused = false;
     error = null;
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.code === 'Space' && e.target === document.body) {
+      e.preventDefault();
+      simParams.paused = !simParams.paused;
+      post({ type: 'params', patch: { paused: simParams.paused } });
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
   <title>Gravity</title>
@@ -51,7 +80,7 @@
       </div>
     {/if}
     <div class="pointer-events-none absolute top-2.5 left-3 text-xs tabular-nums text-muted">
-      {fps} fps · {Math.round(simParams.count)} particles
+      {fps} fps · {Math.round(simParams.count)} particles{#if simParams.paused} · <span class="text-amber">PAUSED</span>{/if}{#if hasPendingChanges} · <span class="text-amber">unsaved</span>{/if}
     </div>
     <button
       type="button"

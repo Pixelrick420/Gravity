@@ -1,11 +1,27 @@
 <script lang="ts">
   import { simParams } from './simParams.svelte';
-  import { SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
+  import { PARTICLE_MASS_MIN, PARTICLE_MASS_MAX, SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
   import type { ParamsPatch, ToWorker } from './messages';
 
   let { worker }: { worker: Worker } = $props();
 
   const post = (msg: ToWorker) => worker.postMessage(msg);
+
+  let lastApplied = $state({
+    count: Math.round(simParams.count),
+    seed: Math.round(simParams.seed),
+    distribution: simParams.distribution,
+    speed: simParams.speed,
+    particleMass: simParams.particleMass,
+  });
+
+  const hasPending = $derived(
+    lastApplied.count !== Math.round(simParams.count) ||
+    lastApplied.seed !== Math.round(simParams.seed) ||
+    lastApplied.distribution !== simParams.distribution ||
+    lastApplied.speed !== simParams.speed ||
+    lastApplied.particleMass !== simParams.particleMass,
+  );
 
   $effect(() => {
     const patch: ParamsPatch = {
@@ -16,7 +32,7 @@
   });
 
   interface SliderSpec {
-    key: 'count' | 'particleSize' | 'speedUi';
+    key: 'count' | 'particleMass' | 'speedUi';
     label: string;
     min: number;
     max: number;
@@ -27,8 +43,8 @@
   const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
 
   const sliders: SliderSpec[] = [
-    { key: 'count', label: 'Particles', min: 100, max: 10000, step: 100, format: (v) => String(Math.round(v)) },
-    { key: 'particleSize', label: 'Particle size', min: 1, max: 10, step: 0.5, format: fmt(1) },
+    { key: 'count', label: 'Particles', min: 2, max: 2000, step: 1, format: (v) => String(Math.round(v)) },
+    { key: 'particleMass', label: 'Particle mass', min: PARTICLE_MASS_MIN, max: PARTICLE_MASS_MAX, step: 0.5, format: fmt(1) },
     { key: 'speedUi', label: 'Speed', min: SPEED_SLIDER_MIN, max: SPEED_SLIDER_MAX, step: 1, format: (v) => String(Math.round(v)) },
   ];
 
@@ -41,14 +57,21 @@
     { value: 'collision', label: 'Galaxy crash' },
   ];
 
-  function doReset(e: Event) {
+  function doApply(e: Event) {
     e.preventDefault();
-    post({
-      type: 'reset',
+    lastApplied = {
       count: Math.round(simParams.count),
       seed: Math.round(simParams.seed),
       distribution: simParams.distribution,
-      particleSize: simParams.particleSize,
+      speed: simParams.speed,
+      particleMass: simParams.particleMass,
+    };
+    post({
+      type: 'reset',
+      count: lastApplied.count,
+      seed: lastApplied.seed,
+      distribution: lastApplied.distribution,
+      particleMass: lastApplied.particleMass,
     });
     simParams.paused = false;
   }
@@ -58,8 +81,13 @@
   <h1 class="m-0 text-xl font-semibold tracking-[0.35em]">GRAVITY</h1>
   <p class="mb-2 mt-0 text-xs text-muted">FMM N-body sandbox</p>
 
-  <button type="button" class="btn" onclick={doReset}>Reset simulation</button>
-  <p class="mt-[-0.25rem] text-center text-[0.65rem] text-muted">Changes apply on reset · Space to pause</p>
+  <button
+    type="button"
+    class="btn transition-colors {hasPending ? 'border-accent bg-accent/10 text-accent' : ''}"
+    onclick={doApply}
+  >
+    {hasPending ? 'Apply' : 'Running'}
+  </button>
 
   <hr class="my-1 border-edge" />
 

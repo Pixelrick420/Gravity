@@ -17,22 +17,6 @@
 
   const post = (msg: ToWorker) => worker.postMessage(msg);
 
-  let lastApplied = $state({
-    count: Math.round(simParams.count),
-    seed: Math.round(simParams.seed),
-    distribution: simParams.distribution,
-    speed: simParams.speed,
-    particleSize: simParams.particleSize,
-  });
-
-  const hasPendingChanges = $derived(
-    lastApplied.count !== Math.round(simParams.count) ||
-    lastApplied.seed !== Math.round(simParams.seed) ||
-    lastApplied.distribution !== simParams.distribution ||
-    lastApplied.speed !== simParams.speed ||
-    lastApplied.particleSize !== simParams.particleSize,
-  );
-
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
     const msg = ev.data;
     if (msg.type === 'stats') {
@@ -50,7 +34,7 @@
       count: Math.round(simParams.count),
       seed: Math.round(simParams.seed),
       distribution: simParams.distribution,
-      particleSize: simParams.particleSize,
+      particleMass: simParams.particleMass,
     } satisfies ToWorker);
     simParams.paused = false;
     error = null;
@@ -80,7 +64,7 @@
       </div>
     {/if}
     <div class="pointer-events-none absolute top-2.5 left-3 text-xs tabular-nums text-muted">
-      {fps} fps · {Math.round(simParams.count)} particles{#if simParams.paused} · <span class="text-amber">PAUSED</span>{/if}{#if hasPendingChanges} · <span class="text-amber">unsaved</span>{/if}
+      {fps} fps · {Math.round(simParams.count)} particles{#if simParams.paused} · <span class="text-amber">PAUSED</span>{/if}
     </div>
     <button
       type="button"

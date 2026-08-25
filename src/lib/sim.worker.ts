@@ -12,6 +12,7 @@ import {
   GRID_REFRESH_DIVISOR,
   GRID_REFRESH_MAX_INTERVAL,
   MAX_SUBSTEPS,
+  PARTICLE_SIZE,
   STATS_INTERVAL_MS,
   TOTAL_MASS_SCALE,
 } from './constants';
@@ -57,11 +58,11 @@ function applyPatch(patch: ParamsPatch) {
   Object.assign(state.params, patch);
 }
 
-function scaleParticleMasses(sim: Simulation, particleSize: number) {
+function scaleParticleMasses(sim: Simulation, mass: number) {
   const count = sim.count();
   const len = count * FLOATS_PER_PARTICLE;
   const view = new Float32Array(state.wasm!.memory.buffer, sim.particles_ptr(), len);
-  const scale = Math.pow(particleSize, TOTAL_MASS_SCALE);
+  const scale = Math.pow(mass, TOTAL_MASS_SCALE);
   let massSum = 0;
   for (let i = 0; i < count; i++) massSum += view[i * FLOATS_PER_PARTICLE + 4];
   if (massSum > 0) {
@@ -169,7 +170,7 @@ function frame(t: number) {
 
   state.renderer.draw(view, count, {
     zoomPxPerUnit: zoom,
-    sizePx: state.params.particleSize,
+    sizePx: PARTICLE_SIZE,
     showGrid: state.params.showGrid,
     showTrails: state.params.showTrails,
     simDeltaMs: state.simDeltaMs,
@@ -218,8 +219,8 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
         state.params.count = msg.count;
         state.params.seed = msg.seed;
         state.params.distribution = msg.distribution;
-        state.params.particleSize = msg.particleSize;
-        scaleParticleMasses(state.sim!, msg.particleSize);
+        state.params.particleMass = msg.particleMass;
+        scaleParticleMasses(state.sim!, msg.particleMass);
       } catch (err) {
         reportError(err);
       }

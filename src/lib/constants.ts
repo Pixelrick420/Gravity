@@ -35,6 +35,9 @@ export const SPEED_MIN = 0.001;
 export const SPEED_MAX = 0.06;
 
 export const TOTAL_MASS_SCALE = 1.5;
+export const PARTICLE_MASS_MIN = 1;
+export const PARTICLE_MASS_MAX = 10;
+export const PARTICLE_MASS_DEFAULT = 3;
 export function speedFromSlider(v: number): number {
   return SPEED_MIN + (v / SPEED_SLIDER_MAX) * (SPEED_MAX - SPEED_MIN);
 }
@@ -43,13 +46,15 @@ export function speedToSlider(speed: number): number {
   return Math.round(((speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * SPEED_SLIDER_MAX);
 }
 
+export const PARTICLE_SIZE = 2;
+
 export const DEFAULT_PARAMS = {
   count: 595,
   seed: 7,
   distribution: 'uniformDisc' as Distribution,
   dt: 0.001,
   speed: speedFromSlider(17),
-  particleSize: 1.45,
+  particleMass: PARTICLE_MASS_DEFAULT,
   paused: false,
   showGrid: true,
   showTrails: false,

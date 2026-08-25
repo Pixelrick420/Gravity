@@ -46,7 +46,9 @@ export function speedToSlider(speed: number): number {
   return Math.round(((speed - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)) * SPEED_SLIDER_MAX);
 }
 
-export const PARTICLE_SIZE = 2;
+export const PARTICLE_SIZE_DEFAULT = 2;
+export const PARTICLE_SIZE_MIN = 0.5;
+export const PARTICLE_SIZE_MAX = 10;
 
 export const WORLD_SIZE = 8;
 export const WORLD_HALF = WORLD_SIZE / 2;
@@ -59,11 +61,13 @@ export const DEFAULT_PARAMS = {
   distribution: 'uniformDisc' as Distribution,
   dt: 0.001,
   speed: speedFromSlider(17),
+  particleSize: PARTICLE_SIZE_DEFAULT,
   particleMass: PARTICLE_MASS_DEFAULT,
   paused: false,
   showGrid: true,
   showTrails: false,
   showCenterOfGravity: false,
+  showCenterOfMass: false,
 };
 
 export const TRAIL_FADE_SIM_MS_PER_FRAME = DEFAULT_PARAMS.speed * FIRST_FRAME_MS;

@@ -14,13 +14,15 @@ export type ParamsPatch = Partial<
       distribution: Distribution;
       dt: number;
       speed: number;
+      particleSize: number;
       particleMass: number;
       paused: boolean;
       showGrid: boolean;
       showTrails: boolean;
       showCenterOfGravity: boolean;
+      showCenterOfMass: boolean;
     },
-    'speed' | 'particleMass' | 'paused' | 'showGrid' | 'showTrails' | 'showCenterOfGravity'
+    'speed' | 'particleSize' | 'particleMass' | 'paused' | 'showGrid' | 'showTrails' | 'showCenterOfGravity' | 'showCenterOfMass'
   >
 >;
 
@@ -33,5 +35,5 @@ export type ToWorker =
 
 export type FromWorker =
   | { type: 'ready' }
-  | { type: 'stats'; fps: number; cogX: number; cogY: number }
+  | { type: 'stats'; fps: number; cogX: number; cogY: number; comX: number; comY: number }
   | { type: 'error'; message: string };

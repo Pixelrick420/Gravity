@@ -1,6 +1,6 @@
 <script lang="ts">
   import { simParams } from './simParams.svelte';
-  import { PARTICLE_MASS_MIN, PARTICLE_MASS_MAX, SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
+  import { PARTICLE_MASS_MIN, PARTICLE_MASS_MAX, PARTICLE_SIZE_MIN, PARTICLE_SIZE_MAX, SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
   import type { ParamsPatch, ToWorker } from './messages';
 
   let { worker }: { worker: Worker } = $props();
@@ -26,7 +26,9 @@
       showGrid: simParams.showGrid,
       showTrails: simParams.showTrails,
       showCenterOfGravity: simParams.showCenterOfGravity,
+      showCenterOfMass: simParams.showCenterOfMass,
       speed: simParams.speed,
+      particleSize: simParams.particleSize,
     };
     post({ type: 'params', patch });
   });
@@ -104,6 +106,11 @@
     <input class="min-w-0 w-full accent-accent" type="range" min={SPEED_SLIDER_MIN} max={SPEED_SLIDER_MAX} step={1} bind:value={simParams.speedUi} />
     <output>{String(Math.round(simParams.speedUi))}</output>
   </label>
+  <label class="panel-row">
+    <span>Particle size</span>
+    <input class="min-w-0 w-full accent-accent" type="range" min={PARTICLE_SIZE_MIN} max={PARTICLE_SIZE_MAX} step={0.5} bind:value={simParams.particleSize} />
+    <output>{fmt(1)(simParams.particleSize)}</output>
+  </label>
 
   <hr class="my-1 border-edge" />
 
@@ -118,5 +125,9 @@
   <label class="flex cursor-pointer items-center justify-between">
     <span>Center of gravity</span>
     <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showCenterOfGravity} />
+  </label>
+  <label class="flex cursor-pointer items-center justify-between">
+    <span>Center of mass</span>
+    <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showCenterOfMass} />
   </label>
 </aside>

@@ -12,7 +12,6 @@ import {
   GRID_REFRESH_DIVISOR,
   GRID_REFRESH_MAX_INTERVAL,
   MAX_SUBSTEPS,
-  PARTICLE_SIZE,
   STATS_INTERVAL_MS,
   TOTAL_MASS_SCALE,
   WORLD_HALF,
@@ -30,7 +29,7 @@ const state = {
   view: null as Float32Array | null,
   ptr: 0,
   len: -1,
-  params: { ...DEFAULT_PARAMS },
+  params: { ...DEFAULT_PARAMS, seed: Math.floor(Math.random() * 1_000_000) },
   halted: false,
   simDeltaMs: 0,
   camCenterX: 0,
@@ -184,7 +183,7 @@ function frame(t: number) {
 
   state.renderer.draw(view, count, {
     zoomPxPerUnit: zoom,
-    sizePx: PARTICLE_SIZE * state.zoom,
+    sizePx: state.params.particleSize * state.zoom,
     showGrid: state.params.showGrid,
     showTrails: state.params.showTrails,
     simDeltaMs: state.simDeltaMs,
@@ -199,19 +198,27 @@ function frame(t: number) {
     lastStatsPost = t;
     let cogX = 0;
     let cogY = 0;
+    let comX = 0;
+    let comY = 0;
     let totalMass = 0;
     for (let i = 0; i < count; i++) {
       const o = i * FLOATS_PER_PARTICLE;
       const m = view[o + 4];
       cogX += view[o] * m;
       cogY += view[o + 1] * m;
+      comX += view[o];
+      comY += view[o + 1];
       totalMass += m;
     }
     if (totalMass > 0) {
       cogX /= totalMass;
       cogY /= totalMass;
     }
-    post({ type: 'stats', fps: Math.round(fpsEma), cogX, cogY });
+    if (count > 0) {
+      comX /= count;
+      comY /= count;
+    }
+    post({ type: 'stats', fps: Math.round(fpsEma), cogX, cogY, comX, comY });
   }
 }
 

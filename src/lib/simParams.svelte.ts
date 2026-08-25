@@ -7,11 +7,13 @@ export class SimParams {
   distribution = $state(DEFAULT_PARAMS.distribution);
   dt = $state(DEFAULT_PARAMS.dt);
   speed = $state(DEFAULT_PARAMS.speed);
+  particleSize = $state(DEFAULT_PARAMS.particleSize);
   particleMass = $state(DEFAULT_PARAMS.particleMass);
   paused = $state(DEFAULT_PARAMS.paused);
   showGrid = $state(DEFAULT_PARAMS.showGrid);
   showTrails = $state(DEFAULT_PARAMS.showTrails);
   showCenterOfGravity = $state(DEFAULT_PARAMS.showCenterOfGravity);
+  showCenterOfMass = $state(DEFAULT_PARAMS.showCenterOfMass);
 
   get speedUi(): number {
     return speedToSlider(this.speed);

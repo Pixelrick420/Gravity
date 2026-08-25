@@ -72,11 +72,8 @@ export class Renderer {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, stride, 8);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, stride, 16);
     gl.vertexAttribDivisor(0, 1);
     gl.vertexAttribDivisor(1, 1);
-    gl.vertexAttribDivisor(2, 1);
     gl.bindVertexArray(null);
 
     gl.disable(gl.DEPTH_TEST);

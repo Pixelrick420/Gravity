@@ -1,4 +1,3 @@
-const MASS_SIZE_FACTOR = 0.8;
 // Median speed -> mid-tint (see simulation-engine/src/bin/speed_stats.rs).
 const SPEED_TINT_RATE = 0.03;
 const PARTICLE_BRIGHTNESS = 1.15;
@@ -9,7 +8,6 @@ precision highp float;
 
 layout(location = 0) in vec2 i_world;
 layout(location = 1) in vec2 i_vel;
-layout(location = 2) in float i_mass;
 
 uniform vec2 u_half;
 uniform vec2 u_camCenter;
@@ -27,7 +25,7 @@ void main() {
   else if (gl_VertexID == 3) c = vec2(-1.0, 1.0);
   else if (gl_VertexID == 4) c = vec2(1.0, -1.0);
   else c = vec2(1.0, 1.0);
-  float sizePx = u_size * (1.0 + sqrt(max(i_mass, 0.0)) * ${MASS_SIZE_FACTOR.toFixed(1)});
+  float sizePx = u_size;
   vec2 off = i_world - u_camCenter;
   off.x = off.x - u_worldSize * round(off.x / u_worldSize);
   off.y = off.y - u_worldSize * round(off.y / u_worldSize);

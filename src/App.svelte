@@ -22,6 +22,10 @@
 
   let cogX = $state(0);
   let cogY = $state(0);
+  let comX = $state(0);
+  let comY = $state(0);
+  let comTargetX = 0;
+  let comTargetY = 0;
 
   const post = (msg: ToWorker) => worker.postMessage(msg);
 
@@ -31,12 +35,26 @@
     post({ type: 'camera', camCenterX, camCenterY, zoom });
   }
 
+  let lastFrameT = 0;
+  function smoothCom(t: number) {
+    requestAnimationFrame(smoothCom);
+    if (lastFrameT === 0) { lastFrameT = t; return; }
+    const dt = Math.min(t - lastFrameT, 50);
+    lastFrameT = t;
+    const decay = 1 - Math.pow(0.01, dt / 1000);
+    comX += (comTargetX - comX) * decay;
+    comY += (comTargetY - comY) * decay;
+  }
+  requestAnimationFrame(smoothCom);
+
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
     const msg = ev.data;
     if (msg.type === 'stats') {
       fps = msg.fps;
       cogX = msg.cogX;
       cogY = msg.cogY;
+      comTargetX = msg.comX;
+      comTargetY = msg.comY;
     } else if (msg.type === 'ready') {
       canvasReady = true;
       postCamera();
@@ -250,6 +268,19 @@
         ></div>
       {/if}
     {/if}
+    {#if simParams.showCenterOfMass}
+      {@const canvas = document.querySelector('canvas')}
+      {#if canvas}
+        {@const baseZoom = Math.min(canvas.width, canvas.height) * 0.5}
+        {@const worldScale = 1 / (baseZoom * zoom)}
+        {@const sx = (canvas.width / 2 + (comX - camCenterX) / worldScale) / window.devicePixelRatio}
+        {@const sy = (canvas.height / 2 + (comY - camCenterY) / worldScale) / window.devicePixelRatio}
+        <div
+          class="pointer-events-none absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_6px_2px_rgba(239,68,68,0.5)]"
+          style="left:{sx}px;top:{sy}px"
+        ></div>
+      {/if}
+    {/if}
     {#if simParams.showCenterOfGravity}
       <button
         type="button"
@@ -257,6 +288,15 @@
         onclick={recenter}
       >
         Recenter
+      </button>
+    {/if}
+    {#if simParams.showCenterOfMass}
+      <button
+        type="button"
+        class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover"
+        onclick={() => { camCenterX = comX; camCenterY = comY; postCamera(); }}
+      >
+        Recenter (mass)
       </button>
     {/if}
   </div>

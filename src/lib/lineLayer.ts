@@ -1,4 +1,4 @@
-import { GRID_COLOR_BRIGHT, GRID_COLOR_DIM, WORLD_CENTER } from './constants';
+import { GRID_COLOR_BRIGHT, GRID_COLOR_DIM } from './constants';
 import { GRID_FRAG_SRC, GRID_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
 
@@ -13,7 +13,7 @@ export class LineLayer {
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    this.prog = createProgram(gl, GRID_VERT_SRC, GRID_FRAG_SRC);
+    this.prog = createProgram(gl, GRID_VERT_SRC, GRID_FRAG_SRC, 'grid');
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
     this.buf = gl.createBuffer()!;
@@ -32,6 +32,8 @@ export class LineLayer {
     zoomPxPerUnit: number,
     halfW: number,
     halfH: number,
+    camCenterX: number,
+    camCenterY: number,
   ) {
     const gl = this.gl;
     if (count > this.capacity) {
@@ -44,7 +46,7 @@ export class LineLayer {
 
     gl.useProgram(this.prog.program);
     gl.uniform2f(this.prog.u('u_half'), halfW, halfH);
-    gl.uniform2f(this.prog.u('u_camCenter'), WORLD_CENTER.x, WORLD_CENTER.y);
+    gl.uniform2f(this.prog.u('u_camCenter'), camCenterX, camCenterY);
     gl.uniform1f(this.prog.u('u_zoom'), zoomPxPerUnit);
     gl.uniform4f(this.prog.u('u_dimColor'), ...GRID_COLOR_DIM);
     gl.uniform4f(this.prog.u('u_brightColor'), ...GRID_COLOR_BRIGHT);

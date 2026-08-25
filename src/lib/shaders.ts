@@ -15,20 +15,25 @@ uniform vec2 u_half;
 uniform vec2 u_camCenter;
 uniform float u_zoom;
 uniform float u_size;
+uniform float u_worldSize;
 
 out vec2 v_vel;
 
 void main() {
-  const vec2 corners[6] = vec2[6](
-    vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
-    vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0)
-  );
-  vec2 c = corners[gl_VertexID];
+  vec2 c;
+  if (gl_VertexID == 0) c = vec2(-1.0, -1.0);
+  else if (gl_VertexID == 1) c = vec2(1.0, -1.0);
+  else if (gl_VertexID == 2) c = vec2(-1.0, 1.0);
+  else if (gl_VertexID == 3) c = vec2(-1.0, 1.0);
+  else if (gl_VertexID == 4) c = vec2(1.0, -1.0);
+  else c = vec2(1.0, 1.0);
   float sizePx = u_size * (1.0 + sqrt(max(i_mass, 0.0)) * ${MASS_SIZE_FACTOR.toFixed(1)});
-  vec2 world = i_world + c * sizePx / u_zoom;
+  vec2 off = i_world - u_camCenter;
+  off.x = off.x - u_worldSize * round(off.x / u_worldSize);
+  off.y = off.y - u_worldSize * round(off.y / u_worldSize);
   gl_Position = vec4(
-    ((world.x - u_camCenter.x) * u_zoom) / u_half.x,
-    -((world.y - u_camCenter.y) * u_zoom) / u_half.y,
+    (off.x * u_zoom + c.x * sizePx) / u_half.x,
+    -(off.y * u_zoom + c.y * sizePx) / u_half.y,
     0.0,
     1.0
   );
@@ -61,14 +66,18 @@ layout(location = 2) in vec2 i_vel;
 uniform vec2 u_half;
 uniform vec2 u_camCenter;
 uniform float u_zoom;
+uniform float u_worldSize;
 
 out vec2 v_vel;
 
 void main() {
   vec2 world = gl_VertexID == 0 ? i_prev : i_pos;
+  vec2 off = world - u_camCenter;
+  off.x = off.x - u_worldSize * round(off.x / u_worldSize);
+  off.y = off.y - u_worldSize * round(off.y / u_worldSize);
   gl_Position = vec4(
-    ((world.x - u_camCenter.x) * u_zoom) / u_half.x,
-    -((world.y - u_camCenter.y) * u_zoom) / u_half.y,
+    (off.x * u_zoom) / u_half.x,
+    -(off.y * u_zoom) / u_half.y,
     0.0,
     1.0
   );
@@ -120,11 +129,13 @@ precision highp float;
 out vec2 v_uv;
 
 void main() {
-  const vec2 corners[6] = vec2[6](
-    vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
-    vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0)
-  );
-  vec2 c = corners[gl_VertexID];
+  vec2 c;
+  if (gl_VertexID == 0) c = vec2(-1.0, -1.0);
+  else if (gl_VertexID == 1) c = vec2(1.0, -1.0);
+  else if (gl_VertexID == 2) c = vec2(-1.0, 1.0);
+  else if (gl_VertexID == 3) c = vec2(-1.0, 1.0);
+  else if (gl_VertexID == 4) c = vec2(1.0, -1.0);
+  else c = vec2(1.0, 1.0);
   v_uv = c * 0.5 + 0.5;
   gl_Position = vec4(c, 0.0, 1.0);
 }

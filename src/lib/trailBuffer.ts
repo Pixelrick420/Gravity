@@ -15,8 +15,8 @@ export class TrailBuffer {
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    this.fadeProg = createProgram(gl, QUAD_VERT_SRC, FADE_FRAG_SRC);
-    this.copyProg = createProgram(gl, QUAD_VERT_SRC, COPY_FRAG_SRC);
+    this.fadeProg = createProgram(gl, QUAD_VERT_SRC, FADE_FRAG_SRC, 'trail-fade');
+    this.copyProg = createProgram(gl, QUAD_VERT_SRC, COPY_FRAG_SRC, 'trail-copy');
     this.emptyVao = gl.createVertexArray()!;
   }
 

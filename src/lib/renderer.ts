@@ -5,7 +5,6 @@ import {
   INSTANCE_BUFFER_GROWTH,
   INSTANCE_BUFFER_MIN_CAPACITY,
   trailFadeAlpha,
-  WORLD_CENTER,
 } from './constants';
 import { FRAG_SRC, VERT_SRC } from './shaders';
 import { createProgram } from './glutil';
@@ -29,6 +28,9 @@ export interface DrawOptions {
   simDeltaMs: number;
   grid: GridGeometry | null;
   trailSegs: TrailSegments | null;
+  camCenterX: number;
+  camCenterY: number;
+  worldSize: number;
 }
 
 export class Renderer {
@@ -58,7 +60,7 @@ export class Renderer {
     this.canvas = canvas;
     this.gl = gl;
 
-    this.prog = createProgram(gl, VERT_SRC, FRAG_SRC);
+    this.prog = createProgram(gl, VERT_SRC, FRAG_SRC, 'particles');
 
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
@@ -122,6 +124,9 @@ export class Renderer {
           opts.zoomPxPerUnit,
           w / 2,
           h / 2,
+          opts.camCenterX,
+          opts.camCenterY,
+          opts.worldSize,
         );
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -144,6 +149,8 @@ export class Renderer {
         opts.zoomPxPerUnit,
         w / 2,
         h / 2,
+        opts.camCenterX,
+        opts.camCenterY,
       );
     }
 
@@ -156,9 +163,10 @@ export class Renderer {
     const gl = this.gl;
     gl.useProgram(this.prog.program);
     gl.uniform2f(this.prog.u('u_half'), this.canvas.width / 2, this.canvas.height / 2);
-    gl.uniform2f(this.prog.u('u_camCenter'), WORLD_CENTER.x, WORLD_CENTER.y);
+    gl.uniform2f(this.prog.u('u_camCenter'), opts.camCenterX, opts.camCenterY);
     gl.uniform1f(this.prog.u('u_zoom'), opts.zoomPxPerUnit);
     gl.uniform1f(this.prog.u('u_size'), opts.sizePx);
+    gl.uniform1f(this.prog.u('u_worldSize'), opts.worldSize);
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, VERTICES_PER_QUAD, count);
     gl.bindVertexArray(null);

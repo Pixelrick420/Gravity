@@ -7,6 +7,7 @@ import {
   GRID_MAX_CELLS,
   GRID_SPACING,
   GRID_VIEWPORT_MARGIN,
+  WORLD_SIZE,
 } from './constants';
 
 export interface GridGeometry {
@@ -59,16 +60,18 @@ class SpatialHash {
 
 export class GridField {
   private displaced = new Float32Array(0);
-  private cols = 0;
-  private rows = 0;
   private halfW = 0;
   private halfH = 0;
   private spacing = GRID_SPACING;
+  private camCenterX = 0;
+  private camCenterY = 0;
   private hash = new SpatialHash(HASH_RADIUS);
   private nearby: number[] = [];
   readonly geometry: GridGeometry = { verts: new Float32Array(0), count: 0 };
+  cols = 0;
+  rows = 0;
 
-  update(view: Float32Array, particleCount: number, halfW: number, halfH: number) {
+  update(view: Float32Array, particleCount: number, halfW: number, halfH: number, camCenterX: number, camCenterY: number) {
     const spacing = Math.max(
       GRID_SPACING,
       (2 * halfW) / GRID_MAX_CELLS,
@@ -77,6 +80,8 @@ export class GridField {
     this.spacing = spacing;
     this.halfW = halfW;
     this.halfH = halfH;
+    this.camCenterX = camCenterX;
+    this.camCenterY = camCenterY;
     const extW = halfW + GRID_VIEWPORT_MARGIN;
     const extH = halfH + GRID_VIEWPORT_MARGIN;
     this.cols = Math.max(2, Math.ceil((2 * extW) / spacing) + 1);
@@ -95,10 +100,11 @@ export class GridField {
     const eps2 = GRID_FIELD_EPS2;
     const d = this.displaced;
     const out = this.nearby;
+    const ws = WORLD_SIZE;
     for (let r = 0; r < this.rows; r++) {
-      const vy = -extH + r * spacing;
+      const vy = camCenterY - extH + r * spacing;
       for (let c = 0; c < this.cols; c++) {
-        const vx = -extW + c * spacing;
+        const vx = camCenterX - extW + c * spacing;
         out.length = 0;
         this.hash.query(vx, vy, out);
         let ax = 0;
@@ -106,8 +112,10 @@ export class GridField {
         let phi = 0;
         for (let k = 0; k < out.length; k++) {
           const o = out[k] * FLOATS_PER_PARTICLE;
-          const dx = view[o] - vx;
-          const dy = view[o + 1] - vy;
+          let dx = view[o] - vx;
+          let dy = view[o + 1] - vy;
+          dx = dx - ws * Math.round(dx / ws);
+          dy = dy - ws * Math.round(dy / ws);
           const r2 = dx * dx + dy * dy;
           ax += (dx * view[o + 4]) / (r2 + eps2);
           ay += (dy * view[o + 4]) / (r2 + eps2);
@@ -144,10 +152,10 @@ export class GridField {
       const base = isMajor ? GRID_MAJOR_INTENSITY : 0;
       return base + (1 - base) * pts[p + 2];
     };
-    const rowMajor = (r: number) =>
-      Math.round((-this.halfH + r * this.spacing) / this.spacing) % GRID_MAJOR_EVERY === 0;
-    const colMajor = (c: number) =>
-      Math.round((-this.halfW + c * this.spacing) / this.spacing) % GRID_MAJOR_EVERY === 0;
+    const worldY = (r: number) => this.camCenterY - this.halfH - GRID_VIEWPORT_MARGIN + r * this.spacing;
+    const worldX = (c: number) => this.camCenterX - this.halfW - GRID_VIEWPORT_MARGIN + c * this.spacing;
+    const rowMajor = (r: number) => Math.round(worldY(r) / this.spacing) % GRID_MAJOR_EVERY === 0;
+    const colMajor = (c: number) => Math.round(worldX(c) / this.spacing) % GRID_MAJOR_EVERY === 0;
     for (let r = 0; r < rows; r++) {
       const major = rowMajor(r);
       for (let c = 0; c < cols - 1; c++) {

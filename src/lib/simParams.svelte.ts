@@ -11,6 +11,7 @@ export class SimParams {
   paused = $state(DEFAULT_PARAMS.paused);
   showGrid = $state(DEFAULT_PARAMS.showGrid);
   showTrails = $state(DEFAULT_PARAMS.showTrails);
+  showCenterOfGravity = $state(DEFAULT_PARAMS.showCenterOfGravity);
 
   get speedUi(): number {
     return speedToSlider(this.speed);

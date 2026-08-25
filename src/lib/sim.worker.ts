@@ -15,6 +15,7 @@ import {
   PARTICLE_SIZE,
   STATS_INTERVAL_MS,
   TOTAL_MASS_SCALE,
+  WORLD_HALF,
 } from './constants';
 import { zoomOf } from './world';
 import type { TrailSegments } from './renderer';
@@ -32,6 +33,9 @@ const state = {
   params: { ...DEFAULT_PARAMS },
   halted: false,
   simDeltaMs: 0,
+  camCenterX: 0,
+  camCenterY: 0,
+  zoom: 1,
 };
 
 const gridField = new GridField();
@@ -87,9 +91,6 @@ function frame(t: number) {
   fpsEma = fpsEma * FPS_EMA_DECAY + (1000 / Math.max(frameDtMs, 1)) * (1 - FPS_EMA_DECAY);
 
   try {
-    // Speed scales the sim-time budget, not the per-step dt. Alpha is the
-    // leftover fraction of a step; rendering at that fraction smooths
-    // motion at any speed, even with zero steps this frame.
     if (!state.params.paused && !state.halted) substepAccMs += frameDtMs * state.params.speed;
     const stepMs = state.params.dt * 1000;
     const budget = Math.floor(substepAccMs / stepMs);
@@ -97,14 +98,28 @@ function frame(t: number) {
     if (substepAccMs > MAX_SUBSTEPS * stepMs) substepAccMs = MAX_SUBSTEPS * stepMs;
 
     const executed = Math.min(MAX_SUBSTEPS, budget);
+
     for (let s = 0; s < executed; s++) {
       state.sim.step(state.params.dt);
     }
+
+    const view2 = syncView();
+    const count2 = state.sim.count();
+    for (let i = 0; i < count2; i++) {
+      const o = i * FLOATS_PER_PARTICLE;
+      let x = view2[o];
+      let y = view2[o + 1];
+      if (x > WORLD_HALF) x -= 2 * WORLD_HALF;
+      else if (x < -WORLD_HALF) x += 2 * WORLD_HALF;
+      if (y > WORLD_HALF) y -= 2 * WORLD_HALF;
+      else if (y < -WORLD_HALF) y += 2 * WORLD_HALF;
+      view2[o] = x;
+      view2[o + 1] = y;
+    }
+
     const alpha = substepAccMs / stepMs;
     state.sim.render(alpha);
 
-    // Executed steps plus interpolation-fraction change. Pausing leaves
-    // this at zero, so trails freeze instead of fade.
     let simDeltaMs = executed * stepMs + (alpha - prevRenderAlpha) * stepMs;
     prevRenderAlpha = alpha;
     if (simDeltaMs < 0) simDeltaMs = 0;
@@ -118,18 +133,17 @@ function frame(t: number) {
 
   const count = state.sim.count();
   const view = syncView();
-  const zoom = zoomOf(state.renderer.canvas.width, state.renderer.canvas.height);
+  const baseZoom = zoomOf(state.renderer.canvas.width, state.renderer.canvas.height);
+  const zoom = baseZoom * state.zoom;
 
+  const halfW = state.renderer.canvas.width / (2 * zoom);
+  const halfH = state.renderer.canvas.height / (2 * zoom);
   const interval = Math.min(GRID_REFRESH_MAX_INTERVAL, Math.ceil(count / GRID_REFRESH_DIVISOR));
   const pausedEdge = state.params.paused && !wasPaused;
   wasPaused = state.params.paused;
+
   if (pausedEdge || (!state.params.paused && fieldAge >= interval)) {
-    gridField.update(
-      view,
-      count,
-      state.renderer.canvas.width / (2 * zoom),
-      state.renderer.canvas.height / (2 * zoom),
-    );
+    gridField.update(view, count, halfW, halfH, state.camCenterX, state.camCenterY);
     fieldAge = 0;
   } else {
     fieldAge++;
@@ -170,17 +184,34 @@ function frame(t: number) {
 
   state.renderer.draw(view, count, {
     zoomPxPerUnit: zoom,
-    sizePx: PARTICLE_SIZE,
+    sizePx: PARTICLE_SIZE * state.zoom,
     showGrid: state.params.showGrid,
     showTrails: state.params.showTrails,
     simDeltaMs: state.simDeltaMs,
     grid: gridField.geometry,
     trailSegs: segs,
+    camCenterX: state.camCenterX,
+    camCenterY: state.camCenterY,
+    worldSize: WORLD_HALF * 2,
   });
 
   if (t - lastStatsPost > STATS_INTERVAL_MS) {
     lastStatsPost = t;
-    post({ type: 'stats', fps: Math.round(fpsEma) });
+    let cogX = 0;
+    let cogY = 0;
+    let totalMass = 0;
+    for (let i = 0; i < count; i++) {
+      const o = i * FLOATS_PER_PARTICLE;
+      const m = view[o + 4];
+      cogX += view[o] * m;
+      cogY += view[o + 1] * m;
+      totalMass += m;
+    }
+    if (totalMass > 0) {
+      cogX /= totalMass;
+      cogY /= totalMass;
+    }
+    post({ type: 'stats', fps: Math.round(fpsEma), cogX, cogY });
   }
 }
 
@@ -208,6 +239,11 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
     }
     case 'params':
       applyPatch(msg.patch);
+      break;
+    case 'camera':
+      state.camCenterX = msg.camCenterX;
+      state.camCenterY = msg.camCenterY;
+      state.zoom = msg.zoom;
       break;
     case 'reset': {
       state.halted = false;

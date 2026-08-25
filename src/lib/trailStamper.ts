@@ -1,6 +1,5 @@
 import { FRAG_SRC, TRAIL_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
-import { WORLD_CENTER } from './constants';
 
 const FLOATS_PER_SEGMENT = 6;
 
@@ -13,7 +12,7 @@ export class TrailStamper {
 
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    this.prog = createProgram(gl, TRAIL_VERT_SRC, FRAG_SRC);
+    this.prog = createProgram(gl, TRAIL_VERT_SRC, FRAG_SRC, 'trail-stamper');
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
     this.buf = gl.createBuffer()!;
@@ -31,7 +30,7 @@ export class TrailStamper {
     gl.bindVertexArray(null);
   }
 
-  draw(verts: Float32Array, count: number, zoomPxPerUnit: number, halfW: number, halfH: number) {
+  draw(verts: Float32Array, count: number, zoomPxPerUnit: number, halfW: number, halfH: number, camCenterX: number, camCenterY: number, worldSize: number) {
     const gl = this.gl;
     if (count > this.capacity) {
       this.capacity = Math.ceil(count * 1.5);
@@ -43,8 +42,9 @@ export class TrailStamper {
 
     gl.useProgram(this.prog.program);
     gl.uniform2f(this.prog.u('u_half'), halfW, halfH);
-    gl.uniform2f(this.prog.u('u_camCenter'), WORLD_CENTER.x, WORLD_CENTER.y);
+    gl.uniform2f(this.prog.u('u_camCenter'), camCenterX, camCenterY);
     gl.uniform1f(this.prog.u('u_zoom'), zoomPxPerUnit);
+    gl.uniform1f(this.prog.u('u_worldSize'), worldSize);
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.LINES, 0, 2, count);
     gl.bindVertexArray(null);

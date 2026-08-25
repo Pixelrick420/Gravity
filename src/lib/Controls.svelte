@@ -11,7 +11,6 @@
     count: Math.round(simParams.count),
     seed: Math.round(simParams.seed),
     distribution: simParams.distribution,
-    speed: simParams.speed,
     particleMass: simParams.particleMass,
   });
 
@@ -19,7 +18,6 @@
     lastApplied.count !== Math.round(simParams.count) ||
     lastApplied.seed !== Math.round(simParams.seed) ||
     lastApplied.distribution !== simParams.distribution ||
-    lastApplied.speed !== simParams.speed ||
     lastApplied.particleMass !== simParams.particleMass,
   );
 
@@ -27,26 +25,13 @@
     const patch: ParamsPatch = {
       showGrid: simParams.showGrid,
       showTrails: simParams.showTrails,
+      showCenterOfGravity: simParams.showCenterOfGravity,
+      speed: simParams.speed,
     };
     post({ type: 'params', patch });
   });
 
-  interface SliderSpec {
-    key: 'count' | 'particleMass' | 'speedUi';
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    format?: (v: number) => string;
-  }
-
   const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
-
-  const sliders: SliderSpec[] = [
-    { key: 'count', label: 'Particles', min: 2, max: 2000, step: 1, format: (v) => String(Math.round(v)) },
-    { key: 'particleMass', label: 'Particle mass', min: PARTICLE_MASS_MIN, max: PARTICLE_MASS_MAX, step: 0.5, format: fmt(1) },
-    { key: 'speedUi', label: 'Speed', min: SPEED_SLIDER_MIN, max: SPEED_SLIDER_MAX, step: 1, format: (v) => String(Math.round(v)) },
-  ];
 
   const distributions: Array<{ value: string; label: string }> = [
     { value: 'uniformDisc', label: 'Uniform disc' },
@@ -63,7 +48,6 @@
       count: Math.round(simParams.count),
       seed: Math.round(simParams.seed),
       distribution: simParams.distribution,
-      speed: simParams.speed,
       particleMass: simParams.particleMass,
     };
     post({
@@ -86,7 +70,7 @@
     class="btn transition-colors {hasPending ? 'border-accent bg-accent/10 text-accent' : ''}"
     onclick={doApply}
   >
-    {hasPending ? 'Apply' : 'Running'}
+    {hasPending ? 'Apply' : 'Reset'}
   </button>
 
   <hr class="my-1 border-edge" />
@@ -102,13 +86,24 @@
 
   <hr class="my-1 border-edge" />
 
-  {#each sliders as spec (spec.key)}
-    <label class="panel-row">
-      <span>{spec.label}</span>
-      <input class="min-w-0 w-full accent-accent" type="range" min={spec.min} max={spec.max} step={spec.step} bind:value={simParams[spec.key]} />
-      <output>{(spec.format ?? String)(simParams[spec.key])}</output>
-    </label>
-  {/each}
+  <label class="panel-row">
+    <span>Particles</span>
+    <input class="min-w-0 w-full accent-accent" type="range" min={2} max={2000} step={1} bind:value={simParams.count} />
+    <output>{String(Math.round(simParams.count))}</output>
+  </label>
+  <label class="panel-row">
+    <span>Particle mass</span>
+    <input class="min-w-0 w-full accent-accent" type="range" min={PARTICLE_MASS_MIN} max={PARTICLE_MASS_MAX} step={0.5} bind:value={simParams.particleMass} />
+    <output>{fmt(1)(simParams.particleMass)}</output>
+  </label>
+
+  <hr class="my-1 border-edge" />
+
+  <label class="panel-row">
+    <span>Speed</span>
+    <input class="min-w-0 w-full accent-accent" type="range" min={SPEED_SLIDER_MIN} max={SPEED_SLIDER_MAX} step={1} bind:value={simParams.speedUi} />
+    <output>{String(Math.round(simParams.speedUi))}</output>
+  </label>
 
   <hr class="my-1 border-edge" />
 
@@ -119,5 +114,9 @@
   <label class="flex cursor-pointer items-center justify-between">
     <span>Trails</span>
     <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showTrails} />
+  </label>
+  <label class="flex cursor-pointer items-center justify-between">
+    <span>Center of gravity</span>
+    <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showCenterOfGravity} />
   </label>
 </aside>

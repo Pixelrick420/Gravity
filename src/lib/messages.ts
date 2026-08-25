@@ -18,8 +18,9 @@ export type ParamsPatch = Partial<
       paused: boolean;
       showGrid: boolean;
       showTrails: boolean;
+      showCenterOfGravity: boolean;
     },
-    'speed' | 'particleMass' | 'paused' | 'showGrid' | 'showTrails'
+    'speed' | 'particleMass' | 'paused' | 'showGrid' | 'showTrails' | 'showCenterOfGravity'
   >
 >;
 
@@ -27,9 +28,10 @@ export type ToWorker =
   | { type: 'init'; canvas: OffscreenCanvas; width: number; height: number; dpr: number }
   | { type: 'params'; patch: ParamsPatch }
   | { type: 'reset'; count: number; seed: number; distribution: Distribution; particleMass: number }
+  | { type: 'camera'; camCenterX: number; camCenterY: number; zoom: number }
   | { type: 'resize'; width: number; height: number; dpr: number };
 
 export type FromWorker =
   | { type: 'ready' }
-  | { type: 'stats'; fps: number }
+  | { type: 'stats'; fps: number; cogX: number; cogY: number }
   | { type: 'error'; message: string };

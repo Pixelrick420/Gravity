@@ -3,13 +3,19 @@ export interface Program {
   u: (name: string) => WebGLUniformLocation;
 }
 
-export function createProgram(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): Program {
+export function createProgram(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string, label = 'program'): Program {
   const compile = (type: number, src: string): WebGLShader => {
     const sh = gl.createShader(type)!;
     gl.shaderSource(sh, src);
     gl.compileShader(sh);
     if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-      throw new Error(`shader compile failed: ${gl.getShaderInfoLog(sh) ?? ''}`);
+      const log = gl.getShaderInfoLog(sh) ?? '';
+      const typeStr = type === gl.VERTEX_SHADER ? 'VERTEX' : 'FRAGMENT';
+      const lines = src.split('\n');
+      console.error(`[${label}] ${typeStr} shader compile failed:\n${log}`);
+      console.error(`[${label}] Full ${typeStr} source:`);
+      lines.forEach((line, i) => console.error(`  ${String(i + 1).padStart(3)}: ${line}`));
+      throw new Error(`shader compile failed: ${log}`);
     }
     return sh;
   };

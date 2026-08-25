@@ -18,7 +18,6 @@ export interface SimParamsSnapshot {
   showTrails: boolean;
 }
 
-/** Fields the UI can change while the simulation runs. */
 export type ParamsPatch = Partial<
   Pick<SimParamsSnapshot, 'speed' | 'particleSize' | 'paused' | 'showGrid' | 'showTrails'>
 >;

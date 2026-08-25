@@ -3,7 +3,6 @@ export interface Program {
   u: (name: string) => WebGLUniformLocation;
 }
 
-/** Compile and link a shader program with a uniform-location cache. */
 export function createProgram(gl: WebGL2RenderingContext, vertSrc: string, fragSrc: string): Program {
   const compile = (type: number, src: string): WebGLShader => {
     const sh = gl.createShader(type)!;

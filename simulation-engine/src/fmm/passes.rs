@@ -1,15 +1,12 @@
-//! Evaluation passes: M2L source-to-target translation, L2L downward
-//! shifting, and per-particle far-field evaluation plus near-field summation.
+//! M2L source-to-target translation, L2L downward shifting, and leaf evaluation.
 
 use super::{BinomTable, FmmTree};
 use crate::complex::Complex;
 use crate::sim::Particles;
 
 impl FmmTree {
-    /// Run all passes and write accelerations into `p`: classify, M2L, L2L,
-    /// then leaf evaluation (far field from locals, near field direct).
     pub fn evaluate(&mut self, p: &mut Particles, g: f32, eps2: f32) {
-        if p.len() == 0 || self.nodes.is_empty() {
+        if p.is_empty() || self.nodes.is_empty() {
             return;
         }
         let order = self.stride_lp;
@@ -78,8 +75,6 @@ impl FmmTree {
         }
     }
 
-    /// Translate every classified source's multipole into the target's local
-    /// expansion.
     pub(super) fn interaction_pass(
         &mut self,
         order: usize,
@@ -93,8 +88,7 @@ impl FmmTree {
             }
         }
     }
-    /// One M2L translation: source multipole at `source` adds to the target's
-    /// local expansion about the target center.
+
     pub(super) fn m2l(
         &mut self,
         target: usize,
@@ -126,7 +120,6 @@ impl FmmTree {
         }
     }
 
-    /// Shift local expansions parent to child, top-down level by level.
     pub(super) fn downward_pass(&mut self, binom: &BinomTable) {
         for level in 1..self.level_ranges.len() {
             let (ls, le) = self.level_ranges[level];

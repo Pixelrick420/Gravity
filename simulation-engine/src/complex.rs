@@ -1,4 +1,4 @@
-//! Minimal complex arithmetic for the multipole expansions. f64 only.
+//! Complex arithmetic for multipole expansions. f64 only.
 
 #[derive(Clone, Copy, Default, PartialEq, Debug)]
 pub(crate) struct Complex {

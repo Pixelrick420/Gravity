@@ -1,7 +1,5 @@
-// Particle appearance constants, interpolated into the GLSL below.
 const MASS_SIZE_FACTOR = 0.8;
-// Calibrated so the pooled median speed across all distributions/seeds maps
-// to mid-tint (see gitignored simulation-engine/src/bin/speed_stats.rs).
+// Median speed -> mid-tint (see simulation-engine/src/bin/speed_stats.rs).
 const SPEED_TINT_RATE = 0.03;
 const PARTICLE_BRIGHTNESS = 1.15;
 const PARTICLE_ALPHA = 0.95;
@@ -13,10 +11,10 @@ layout(location = 0) in vec2 i_world;
 layout(location = 1) in vec2 i_vel;
 layout(location = 2) in float i_mass;
 
-uniform vec2 u_half;      // canvas half-size in px
-uniform vec2 u_camCenter; // world coords at canvas center
-uniform float u_zoom;     // px per world unit
-uniform float u_size;     // base particle size in px
+uniform vec2 u_half;
+uniform vec2 u_camCenter;
+uniform float u_zoom;
+uniform float u_size;
 
 out vec2 v_vel;
 
@@ -45,7 +43,6 @@ in vec2 v_vel;
 out vec4 fragColor;
 
 void main() {
-  // slow = blue, fast = gold; additive blending blooms overlaps
   float t = clamp(length(v_vel) * ${SPEED_TINT_RATE.toFixed(3)}, 0.0, 1.0);
   vec3 cool = vec3(0.55, 0.80, 1.00);
   vec3 warm = vec3(1.00, 0.75, 0.35);
@@ -54,7 +51,6 @@ void main() {
 }
 `;
 
-// Trail streaks: instanced line segments, gl_VertexID picks the endpoint.
 export const TRAIL_VERT_SRC = `#version 300 es
 precision highp float;
 
@@ -117,7 +113,7 @@ void main() {
 }
 `;
 
-// Fullscreen quad from gl_VertexID; attribute-less draws need an empty VAO.
+// Attribute-less fullscreen quad via gl_VertexID.
 export const QUAD_VERT_SRC = `#version 300 es
 precision highp float;
 

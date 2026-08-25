@@ -2,11 +2,7 @@ import { CLEAR_COLOR } from './constants';
 import { COPY_FRAG_SRC, FADE_FRAG_SRC, QUAD_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
 
-/**
- * Persistent accumulation texture giving particles fading trails. Each frame
- * the previous image decays toward the backdrop, fresh particles are stamped
- * additively by the renderer, then the buffer is presented to the screen.
- */
+/** Accumulation texture for fading particle trails. */
 export class TrailBuffer {
   private gl: WebGL2RenderingContext;
   private fadeProg: Program;
@@ -24,7 +20,6 @@ export class TrailBuffer {
     this.emptyVao = gl.createVertexArray()!;
   }
 
-  /** Recreate the accumulation surface when the canvas resizes. */
   ensureSize(width: number, height: number) {
     if (this.tex && this.width === width && this.height === height) return;
     const gl = this.gl;
@@ -56,7 +51,6 @@ export class TrailBuffer {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  /** Blend the previous frame toward the backdrop color by `alpha`. */
   fade(alpha: number) {
     const gl = this.gl;
     gl.useProgram(this.fadeProg.program);
@@ -64,7 +58,6 @@ export class TrailBuffer {
     this.drawQuad();
   }
 
-  /** Copy the accumulation buffer onto the currently bound framebuffer. */
   present() {
     const gl = this.gl;
     gl.activeTexture(gl.TEXTURE0);

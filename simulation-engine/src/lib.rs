@@ -39,8 +39,7 @@ impl Simulation {
         Ok(())
     }
 
-    /// Write the render buffer at display fraction `alpha` in [0, 1)
-    /// between the last two physics states.
+    /// Write render buffer at display fraction `alpha` between two states.
     pub fn render(&mut self, alpha: f32) {
         self.particles.render(alpha.clamp(0.0, 1.0));
     }

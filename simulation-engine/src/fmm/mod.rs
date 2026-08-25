@@ -1,7 +1,4 @@
 //! Quadtree FMM: tree construction, upward pass, and shared types.
-//!
-//! Interaction classification lives in [`classify`]; the M2L, L2L, and leaf
-//! evaluation passes live in [`passes`].
 
 mod classify;
 mod passes;
@@ -16,11 +13,8 @@ const NONE: u32 = u32::MAX;
 
 #[derive(Clone, Copy)]
 struct Node {
-    /// Geometric box center.
     cx: f64,
     cy: f64,
-    /// Expansion origin. Leaves use the center of mass; internals the box
-    /// center. Mass-centered leaves keep high-order moments small.
     ex: f64,
     ey: f64,
     half: f64,
@@ -61,7 +55,6 @@ impl BinomTable {
     }
 }
 
-/// Barnes-Hut style quadtree with per-node multipole and local expansions.
 pub struct FmmTree {
     nodes: Vec<Node>,
     sorted_idx: Vec<u32>,
@@ -73,7 +66,6 @@ pub struct FmmTree {
 }
 
 impl FmmTree {
-    /// Build the tree over `p` and run the upward (P2M + M2M) pass.
     pub fn build(p: &Particles, order: usize, leaf_capacity: usize) -> Self {
         let n = p.len();
         let stride_mp = order + 1;
@@ -105,7 +97,8 @@ impl FmmTree {
         }
         let root_cx = (min_x + max_x) * 0.5;
         let root_cy = (min_y + max_y) * 0.5;
-        let root_half = (((max_x - min_x).max(max_y - min_y)) * 0.5 * 1.000_1 + 1e-6).max(1e-6);
+        let root_half =
+            (((max_x - min_x).max(max_y - min_y)) * 0.5 * 1.000_1 + 1e-6).max(1e-6);
 
         let codes: Vec<u32> = (0..n)
             .map(|i| {
@@ -149,8 +142,6 @@ impl FmmTree {
             leaf: false,
         });
 
-        // Breadth-first subdivision. Particles reorder in place under each
-        // node, so every level stays a contiguous slice of sorted_idx.
         let mut scratch: Vec<u32> = vec![0; n];
         let mut level_start = 0usize;
         while level_start < tree.nodes.len() {
@@ -227,8 +218,6 @@ impl FmmTree {
         tree
     }
 
-    /// Move each leaf's expansion origin to its center of mass. This keeps
-    /// high-order moments small when mass clumps in one box corner.
     fn anchor_leaf_expansions_at_mass(&mut self, p: &Particles) {
         for node in &mut self.nodes {
             if !node.leaf {
@@ -251,7 +240,6 @@ impl FmmTree {
         }
     }
 
-    /// P2M on leaves, then M2M translation to parents, bottom-up.
     fn upward_pass(&mut self, p: &Particles, order: usize) {
         for ni in (0..self.nodes.len()).rev() {
             let base = ni * self.stride_mp;
@@ -268,7 +256,8 @@ impl FmmTree {
                     self.multipole[base] = self.multipole[base].add(pw.scale(m));
                     for kk in 1..=order {
                         pw = pw.mul(dz);
-                        self.multipole[base + kk] = self.multipole[base + kk].add(pw.scale(m));
+                        self.multipole[base + kk] =
+                            self.multipole[base + kk].add(pw.scale(m));
                     }
                 }
             } else {

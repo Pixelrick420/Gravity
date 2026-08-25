@@ -1,7 +1,6 @@
 import { DEFAULT_PARAMS, speedFromSlider, speedToSlider } from './constants';
 
-/** Reactive DEFAULT_PARAMS mirror, shared by main-thread components.
- * `speed` holds internal sim units; `speedUi` is its 0–100 slider view. */
+/** Reactive mirror of DEFAULT_PARAMS. speed is internal; speedUi is 0-100. */
 export class SimParams {
   count = $state(DEFAULT_PARAMS.count);
   seed = $state(DEFAULT_PARAMS.seed);

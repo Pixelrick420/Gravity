@@ -1,15 +1,10 @@
-//! Dual-tree pair traversal. Each unordered node pair resolves once into
-//! mutual M2L, mutual near field, or descent. Shared verdicts keep forces
-//! symmetric; a one-sided scan cannot hide here.
+//! Dual-tree pair traversal. Shared verdicts keep forces symmetric.
 
 use super::{FmmTree, NONE};
 
 impl FmmTree {
-    /// Minimum center distance as a multiple of the larger box half size.
-    /// Keeps the truncated series accurate and the boxes apart.
     const M2L_MIN_RATIO: f64 = 6.0;
 
-    /// Accept an M2L edge when the centers clear `M2L_MIN_RATIO` box widths.
     fn m2l_acceptable(&self, a: usize, b: usize) -> bool {
         let na = &self.nodes[a];
         let nb = &self.nodes[b];
@@ -19,8 +14,6 @@ impl FmmTree {
         d >= Self::M2L_MIN_RATIO * na.half.max(nb.half)
     }
 
-    /// Build mutual M2L and near lists for every leaf. Both sides of a pair
-    /// always get the same verdict, so no interaction stays one-sided.
     pub(super) fn classify_interactions(
         &self,
     ) -> (Vec<Vec<usize>>, Vec<Vec<u32>>) {
@@ -33,8 +26,6 @@ impl FmmTree {
             if a == b {
                 let kids = self.nodes[a].children;
                 if kids == [NONE; 4] {
-                    // Leaf paired with itself: its own particles interact
-                    // through the near field.
                     near_lists[a].push(a as u32);
                     continue;
                 }
@@ -90,7 +81,6 @@ impl FmmTree {
             }
         }
 
-        // Descents can revisit a pair. Dedup so each source appears once.
         for list in m2l_lists.iter_mut() {
             list.sort_unstable();
             list.dedup();

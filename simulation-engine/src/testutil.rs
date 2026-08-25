@@ -1,5 +1,5 @@
 //! Shared test helpers: timing guard, direct-summation reference, error
-//! metrics, and reusable particle layouts. Compiled for tests only.
+//! metrics, and reusable particle layouts.
 
 use crate::config::Distribution;
 use crate::sim::Particles;
@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 
 const TEST_TIME_LIMIT: Duration = Duration::from_secs(60);
 
-/// Fails an assertion when a test exceeds its time budget.
 pub(crate) struct Deadline {
     start: Instant,
     what: &'static str,
@@ -74,8 +73,7 @@ pub(crate) fn rel_l2_error(
 
 const GOLDEN_ANGLE: f64 = 2.399_963;
 
-/// Two dense spiral clusters of unequal masses at (-0.45,-0.35) and
-/// (+0.45,+0.35). Stresses deep, unbalanced subtrees.
+/// Two dense spiral clusters at (-0.45,-0.35) and (+0.45,+0.35).
 pub(crate) fn clustered_particles(n: usize, seed: u32) -> Particles {
     let mut p = Particles::new(n, seed, Distribution::UniformDisc);
     for k in 0..n {
@@ -94,8 +92,7 @@ pub(crate) fn clustered_particles(n: usize, seed: u32) -> Particles {
     p
 }
 
-/// Copy positions and masses of `src` into a fresh particle set with zero
-/// velocities, so several trees can evaluate identical inputs.
+/// Copy positions and masses of `src` with zero velocities.
 pub(crate) fn clone_layout(src: &Particles) -> Particles {
     let mut q = Particles::new(src.len(), 1, Distribution::UniformDisc);
     q.pos_x = src.pos_x.clone();

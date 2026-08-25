@@ -22,15 +22,12 @@ impl XorShift64Star {
         x.wrapping_mul(0x2545F4914F6CDD1D)
     }
 
-    /// Uniform sample in [0, 1).
     pub fn uniform(&mut self) -> f64 {
         (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
     }
 }
 
-/// Structure-of-arrays particle state. `render` mirrors position, velocity,
-/// and mass into one interleaved buffer for zero-copy GPU reads. `prev_*`
-/// holds the positions from before the last step, for render interpolation.
+/// SoA particle state with render buffer and interpolation support.
 pub struct Particles {
     pub pos_x: Vec<f32>,
     pub pos_y: Vec<f32>,
@@ -44,13 +41,10 @@ pub struct Particles {
     pub render: Vec<f32>,
 }
 
-/// Rough circular-orbit speed for the preset layouts (assumes g = 1).
 fn orbital_speed(r: f32) -> f32 {
     (TOTAL_MASS * r / 4.0).sqrt()
 }
 
-/// Spatial-hash grid backing seeded placements: rejects a candidate that
-/// lands within one cell of an accepted one by scanning its 3x3 block.
 mod placement {
     use super::XorShift64Star;
     use std::collections::HashMap;
@@ -69,7 +63,6 @@ mod placement {
             ((x / self.cell).floor() as i32, (y / self.cell).floor() as i32)
         }
 
-        /// True when no accepted point sits within `cell` of (x, y).
         pub fn fits(&self, x: f32, y: f32) -> bool {
             let (cx, cy) = self.key(x, y);
             let c2 = self.cell * self.cell;
@@ -94,15 +87,12 @@ mod placement {
         }
     }
 
-    /// Density-scaled separation floor: a fixed fraction of the mean spacing
-    /// implied by `area` and `n`, clamped so dense layouts stay feasible.
     pub fn min_sep_for(area: f64, n: usize, lo: f32, hi: f32) -> f32 {
         ((area / n.max(1) as f64).sqrt() as f32 * 0.35).clamp(lo, hi)
     }
 
-    /// Propose until the candidate clears its neighbors, then accept. Falls
-    /// back to the last proposal so saturated layouts cannot stall seeding.
-    pub fn place<F>(grid: &mut PlacementGrid, rng: &mut XorShift64Star, propose: &mut F) -> (f32, f32)    where
+    pub fn place<F>(grid: &mut PlacementGrid, rng: &mut XorShift64Star, propose: &mut F) -> (f32, f32)
+    where
         F: FnMut(&mut XorShift64Star) -> (f32, f32),
     {
         let mut last = propose(rng);
@@ -118,7 +108,6 @@ mod placement {
         last
     }
 
-    /// Place through the grid when one is active; otherwise take the proposal.
     pub fn place_or_propose<F>(
         grid: &mut Option<PlacementGrid>,
         rng: &mut XorShift64Star,
@@ -152,8 +141,6 @@ impl Particles {
         p
     }
 
-    /// Reseed to `n` particles of the given layout. Masses vary per particle,
-    /// then renormalize so the total stays at TOTAL_MASS.
     pub fn seed(&mut self, n: usize, seed: u32, distribution: Distribution) {
         self.pos_x.clear();
         self.pos_y.clear();
@@ -165,7 +152,6 @@ impl Particles {
 
         let mut rng = XorShift64Star::new(seed);
 
-        // Reject ultra-close pairs. They spike the force budget at birth.
         let mut grid = match distribution {
             Distribution::UniformDisc | Distribution::Plummer => {
                 let area = std::f64::consts::PI * f64::from(WORLD_HALF * 0.9).powi(2);
@@ -221,14 +207,12 @@ impl Particles {
                     let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
                     self.pos_x.push(px);
                     self.pos_y.push(py);
-                    // Circular velocity, projected onto the position tangent.
                     let r = (px * px + py * py).sqrt().max(0.02);
                     let vt = 0.55 * (TOTAL_MASS * r).sqrt() / (r + 0.35);
                     self.vel_x.push(-vt * py / r);
                     self.vel_y.push(vt * px / r);
                 }
                 Distribution::Spiral => {
-                    // Two logarithmic-ish arms winding out from the center.
                     let frac = k as f32 / n as f32;
                     let r = 0.15 + 0.75 * frac;
                     let tau = std::f64::consts::TAU as f32;
@@ -242,7 +226,6 @@ impl Particles {
                     self.vel_y.push(v * theta.cos());
                 }
                 Distribution::TwoClusters => {
-                    // Two dense balls that fall into each other and merge.
                     let (cx, cy) = if k % 2 == 0 { (-0.45, -0.35) } else { (0.45, 0.35) };
                     let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
                         let rad = 0.12 * rng.uniform().sqrt() as f32;
@@ -252,8 +235,6 @@ impl Particles {
                     let (px, py) = placement::place_or_propose(&mut grid, &mut rng, &mut propose);
                     self.pos_x.push(px);
                     self.pos_y.push(py);
-                    // Slow spin around the cluster center, plus a gentle push
-                    // toward the other cluster.
                     let phi = (py - cy).atan2(px - cx);
                     let spin = 3.0;
                     let drift = if k % 2 == 0 { 0.4 } else { -0.4 };
@@ -261,7 +242,6 @@ impl Particles {
                     self.vel_y.push(spin * phi.cos() + drift * 0.6);
                 }
                 Distribution::Ring => {
-                    // A thin ring of particles orbiting at circular speed.
                     let tau = std::f64::consts::TAU as f32;
                     let r = 0.7 + (rng.uniform() as f32 - 0.5) * 0.04;
                     let phi = (k as f32 / n as f32) * tau + (rng.uniform() as f32 - 0.5) * 0.02;
@@ -272,7 +252,6 @@ impl Particles {
                     self.vel_y.push(v * phi.cos());
                 }
                 Distribution::Collision => {
-                    // Two spinning discs launched straight at each other.
                     let side = if k % 2 == 0 { -1.0 } else { 1.0 };
                     let cx = side * 0.6;
                     let mut propose = |rng: &mut XorShift64Star| -> (f32, f32) {
@@ -315,9 +294,11 @@ impl Particles {
         self.pos_x.len()
     }
 
-    /// Write the GPU buffer at display time `alpha` in [0, 1) between the
-    /// last two physics states. Positions interpolate; velocity and mass do
-    /// not need to.
+    pub fn is_empty(&self) -> bool {
+        self.pos_x.is_empty()
+    }
+
+    /// Write render buffer at display time `alpha` between two physics states.
     pub fn render(&mut self, alpha: f32) {
         for i in 0..self.len() {
             let o = i * 5;
@@ -339,8 +320,7 @@ impl Particles {
     }
 }
 
-/// One velocity-Verlet step. Reuses the accelerations from the previous step
-/// for the first half kick. Saves the pre-step positions for interpolation.
+/// One velocity-Verlet step. Reuses previous accelerations for the half kick.
 pub fn velocity_verlet_step(p: &mut Particles, config: &Config, dt: f32) {
     let n = p.len();
     p.prev_x.copy_from_slice(&p.pos_x);
@@ -358,7 +338,6 @@ pub fn velocity_verlet_step(p: &mut Particles, config: &Config, dt: f32) {
     }
 }
 
-/// FMM gravity.
 pub fn compute_accelerations(p: &mut Particles, config: &Config) {
     let eps2 = config.softening * config.softening;
     let g = config.g;
@@ -424,7 +403,6 @@ mod tests {
         e
     }
 
-    /// Known failure: cold-start collapse breaks the fixed step size.
     #[test]
     fn energy_drift_bounded() {
         let dl = Deadline::new("energy_drift_bounded");
@@ -476,7 +454,6 @@ mod tests {
         assert!(drift < 1e-3 * scale.max(1e-9), "momentum drift {}", drift);
     }
 
-    /// Known failure: reversal error sits just above the limit.
     #[test]
     fn time_reversal_roundtrip() {
         let dl = Deadline::new("time_reversal_roundtrip");

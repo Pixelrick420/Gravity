@@ -2,9 +2,8 @@ import { FRAG_SRC, TRAIL_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
 import { WORLD_CENTER } from './constants';
 
-const FLOATS_PER_SEGMENT = 6; // [prevX, prevY, posX, posY, velX, velY]
+const FLOATS_PER_SEGMENT = 6;
 
-/** Stamps one velocity-tinted line segment per particle into the trail buffer. */
 export class TrailStamper {
   private gl: WebGL2RenderingContext;
   private prog: Program;

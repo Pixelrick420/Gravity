@@ -17,7 +17,6 @@ import { TrailStamper } from './trailStamper';
 const VERTICES_PER_QUAD = 6;
 
 export interface TrailSegments {
-  /** Interleaved [prevX, prevY, posX, posY, velX, velY] per particle. */
   verts: Float32Array;
   count: number;
 }
@@ -27,13 +26,11 @@ export interface DrawOptions {
   sizePx: number;
   showGrid: boolean;
   showTrails: boolean;
-  /** Simulated ms elapsed since the previous render; drives trail decay. */
   simDeltaMs: number;
   grid: GridGeometry | null;
   trailSegs: TrailSegments | null;
 }
 
-/** WebGL2 renderer: particles plus optional curved grid and trail buffer. */
 export class Renderer {
   private gl: WebGL2RenderingContext;
   private prog!: ReturnType<typeof createProgram>;
@@ -66,7 +63,6 @@ export class Renderer {
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
 
-    // interleaved instances [x,y,vx,vy,m]
     this.instanceBuf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuf);
     const stride = BYTES_PER_PARTICLE;
@@ -95,7 +91,6 @@ export class Renderer {
     this.gl.viewport(0, 0, width, height);
   }
 
-  /** Grow the GPU buffer to hold `count` instances. */
   ensureCapacity(count: number) {
     if (count <= this.capacity) return;
     this.capacity = Math.max(INSTANCE_BUFFER_MIN_CAPACITY, count * INSTANCE_BUFFER_GROWTH);

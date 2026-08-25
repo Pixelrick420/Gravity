@@ -1,9 +1,4 @@
-//! FMM correctness tests.
-//!
-//! Gates compare the full evaluation against a direct O(n^2) reference.
-//! Structural tests prove individual passes: P2M/M2M moments, M2L isolation,
-//! L2L shifting, staged-versus-production equivalence, and exact far/near
-//! partitioning.
+//! FMM correctness tests against direct O(n^2) reference.
 
 use super::{BinomTable, FmmTree, Node, NONE};
 use crate::complex::Complex;
@@ -16,7 +11,7 @@ const ORDER: usize = 8;
 const LEAF_CAPACITY: usize = 32;
 const EPS2: f32 = 1e-6;
 
-#[allow(clippy::too_many_arguments)] // test fixture: every Node field is set by hand
+#[allow(clippy::too_many_arguments)]
 fn nd(
     cx: f64,
     cy: f64,
@@ -47,7 +42,6 @@ fn nd(
     }
 }
 
-/// Differentiate a local expansion centered at the origin, evaluated at z.
 fn eval_expansion(local: &[Complex], z: Complex, order: usize) -> Complex {
     let mut spow = vec![Complex::new(1.0, 0.0); order];
     for k in 1..order {
@@ -80,9 +74,6 @@ fn single_pair_matches_analytic() {
     assert!(p.acc_y[1].abs() < 1e-5);
 }
 
-/// One source box, one target box, one particle each. The far-field
-/// contribution at the target particle must match the analytic pull from the
-/// source particle to 1e-4.
 #[test]
 fn two_box_isolation() {
     let order = 8usize;
@@ -114,8 +105,6 @@ fn two_box_isolation() {
     let mut wpow = vec![Complex::default(); 2 * order + 2];
     tree.m2l(2, 1, order, &binom, &mut wpow);
 
-    // Far field at an arbitrary point inside the target box, from the box's
-    // local expansion about its center.
     let zi = Complex::new(1.4, 1.1);
     let zc = Complex::new(tree.nodes[2].cx, tree.nodes[2].cy);
     let s = Complex::new(zi.re - zc.re, zi.im - zc.im);
@@ -135,10 +124,6 @@ fn two_box_isolation() {
     );
 }
 
-/// Hand-built chain root -> X (internal) -> C (leaf). Fill X's local with
-/// arbitrary coefficients, shift down once, then evaluate both expansions at
-/// the same point inside C. Truncated-polynomial shifting is exact, so the
-/// two must agree to 1e-9.
 #[test]
 fn l2l_exactness() {
     let order = 8usize;
@@ -154,9 +139,7 @@ fn l2l_exactness() {
         stride_lp,
     };
     tree.nodes.push(nd(0.0, 0.0, 2.0, NONE, [1, NONE, NONE, NONE], 0, 0, 0, 0, 0, false));
-    // X: level 1 cell (0,0), center (-1,-1).
     tree.nodes.push(nd(-1.0, -1.0, 1.0, 0, [2, NONE, NONE, NONE], 0, 0, 1, 0, 0, false));
-    // C: level 2 cell (1,0) under X, center (-0.5,-1.5).
     tree.nodes.push(nd(-0.5, -1.5, 0.5, 1, [NONE; 4], 0, 0, 2, 1, 0, true));
 
     let mut rng_state = 12345u64;
@@ -189,8 +172,6 @@ fn l2l_exactness() {
     );
 }
 
-/// The root multipole after P2M plus M2M must equal the exact moments of all
-/// particles about the root center.
 #[test]
 fn root_multipole_matches_exact_moments() {
     let n = 120;
@@ -223,8 +204,6 @@ fn root_multipole_matches_exact_moments() {
     }
 }
 
-/// Running the passes by hand must reproduce the local expansions that
-/// evaluate produces, bit for bit, for both layouts.
 #[test]
 fn staged_passes_match_production() {
     let order = ORDER;
@@ -237,7 +216,6 @@ fn staged_passes_match_production() {
         let mut pa = clone_layout(&p);
         ta.evaluate(&mut pa, 1.0, EPS2);
 
-        // build already ran the upward pass; repeat only M2L and L2L here.
         let mut tb = FmmTree::build(&p, order, LEAF_CAPACITY);
         let (m2l_lists, _near) = tb.classify_interactions();
         tb.interaction_pass(order, &binom, &m2l_lists);
@@ -250,10 +228,6 @@ fn staged_passes_match_production() {
     }
 }
 
-/// For every leaf, every other particle must appear exactly once across the
-/// near list and the M2L translations onto the leaf's full ancestor chain.
-/// Sources beyond the parent neighborhood belong to coarser ancestors, whose
-/// contributions arrive through L2L inheritance.
 #[test]
 fn partition_covers_each_particle_once() {
     for (name, p) in [
@@ -269,7 +243,6 @@ fn partition_covers_each_particle_once() {
             if !tree.nodes[li].leaf {
                 continue;
             }
-            // Near set: gathered neighbor leaves plus the leaf itself.
             members.clear();
             for &nid in near {
                 let node = &tree.nodes[nid as usize];
@@ -282,7 +255,6 @@ fn partition_covers_each_particle_once() {
             }
             let near_set: HashSet<usize> = members.iter().copied().collect();
 
-            // Far set: sources translated onto any node of the leaf's chain.
             chain.clear();
             let mut cur = li;
             while cur != NONE as usize {
@@ -319,8 +291,6 @@ fn partition_covers_each_particle_once() {
     }
 }
 
-/// Total error must fall clearly as the expansion order rises. A flat or
-/// rising sequence means a pass stopped contributing.
 #[test]
 fn order_convergence_improves_with_order() {
     for (name, p) in [
@@ -334,10 +304,7 @@ fn order_convergence_improves_with_order() {
         eprintln!("{name} order  4 | rel L2 {e4:.3e}");
         eprintln!("{name} order  8 | rel L2 {e8:.3e}");
         eprintln!("{name} order 16 | rel L2 {e16:.3e}");
-        // Clear convergence in the useful range...
         assert!(e8 < e4 * 0.5, "{name}: order 8 error {e8:.3e} did not halve {e4:.3e}");
-        // ...and no regression at the f32 precision floor, where higher
-        // orders stop helping.
         assert!(e16 < e4, "{name}: order 16 error {e16:.3e} regressed on {e4:.3e}");
     }
 }

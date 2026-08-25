@@ -9,7 +9,6 @@
   onMount(() => {
     const el = canvas!;
     const off = el.transferControlToOffscreen();
-    // OffscreenCanvas moves only through the transfer list.
     const dpr = window.devicePixelRatio || 1;
     worker.postMessage(
       {

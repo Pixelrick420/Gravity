@@ -6,56 +6,55 @@
 
   let { worker }: { worker: Worker } = $props();
 
-  const post = (msg: ToWorker) => worker.postMessage(msg);
+const post = (msg: ToWorker) => worker.postMessage(msg);
 
-  // Push every param change to the worker.
-  $effect(() => {
-    const patch: ParamsPatch = {
-      speed: simParams.speed,
-      particleSize: simParams.particleSize,
-      paused: simParams.paused,
-      showGrid: simParams.showGrid,
-      showTrails: simParams.showTrails,
-    };
-    post({ type: 'params', patch });
+$effect(() => {
+  const patch: ParamsPatch = {
+    speed: simParams.speed,
+    particleSize: simParams.particleSize,
+    paused: simParams.paused,
+    showGrid: simParams.showGrid,
+    showTrails: simParams.showTrails,
+  };
+  post({ type: 'params', patch });
+});
+
+interface SliderSpec {
+  key: 'count' | 'particleSize' | 'speedUi';
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  format?: (v: number) => string;
+}
+
+const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
+
+const sliders: SliderSpec[] = [
+  { key: 'count', label: 'Particles', min: 100, max: 10000, step: 100, format: (v) => String(Math.round(v)) },
+  { key: 'particleSize', label: 'Particle size', min: 1, max: 10, step: 0.5, format: fmt(1) },
+  { key: 'speedUi', label: 'Speed', min: SPEED_SLIDER_MIN, max: SPEED_SLIDER_MAX, step: 1, format: (v) => String(Math.round(v)) },
+];
+
+const distributions: Array<{ value: string; label: string }> = [
+  { value: 'uniformDisc', label: 'Uniform disc' },
+  { value: 'plummer', label: 'Star cluster' },
+  { value: 'spiral', label: 'Spiral galaxy' },
+  { value: 'twoClusters', label: 'Two clusters' },
+  { value: 'ring', label: 'Ring' },
+  { value: 'collision', label: 'Galaxy crash' },
+];
+
+function doReset(e: Event) {
+  e.preventDefault();
+  post({
+    type: 'reset',
+    count: Math.round(simParams.count),
+    seed: Math.round(simParams.seed),
+    distribution: simParams.distribution,
   });
-
-  interface SliderSpec {
-    key: 'count' | 'particleSize' | 'speedUi';
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    format?: (v: number) => string;
-  }
-
-  const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
-
-  const sliders: SliderSpec[] = [
-    { key: 'count', label: 'Particles', min: 100, max: 10000, step: 100, format: (v) => String(Math.round(v)) },
-    { key: 'particleSize', label: 'Particle size', min: 1, max: 10, step: 0.5, format: fmt(1) },
-    { key: 'speedUi', label: 'Speed', min: SPEED_SLIDER_MIN, max: SPEED_SLIDER_MAX, step: 1, format: (v) => String(Math.round(v)) },
-  ];
-
-  const distributions: Array<{ value: string; label: string }> = [
-    { value: 'uniformDisc', label: 'Uniform disc' },
-    { value: 'plummer', label: 'Star cluster' },
-    { value: 'spiral', label: 'Spiral galaxy' },
-    { value: 'twoClusters', label: 'Two clusters' },
-    { value: 'ring', label: 'Ring' },
-    { value: 'collision', label: 'Galaxy crash' },
-  ];
-
-  function doReset(e: Event) {
-    e.preventDefault();
-    post({
-      type: 'reset',
-      count: Math.round(simParams.count),
-      seed: Math.round(simParams.seed),
-      distribution: simParams.distribution,
-    });
-    simParams.paused = false;
-  }
+  simParams.paused = false;
+}
 </script>
 
 <aside class="absolute inset-x-0 bottom-0 z-20 flex max-h-[45dvh] w-full flex-col gap-2 overflow-y-auto border-t border-edge bg-surface/90 p-4 text-sm text-ink shadow-xl backdrop-blur-sm sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-72 sm:border-t-0 sm:border-l">
@@ -106,4 +105,3 @@
     {/if}
   </button>
 </aside>
-

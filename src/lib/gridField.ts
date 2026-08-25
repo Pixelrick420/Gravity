@@ -8,27 +8,15 @@ import {
   GRID_SPACING,
 } from './constants';
 
-/**
- * Line-segment vertices of the displaced grid, ready for buffer upload.
- */
 export interface GridGeometry {
-  /** Interleaved per-vertex [x, y, intensity] triplets. */
   verts: Float32Array;
-  /** Number of vertices (verts.length / 3). */
   count: number;
 }
 
 const FLOATS_PER_PARTICLE = 5;
-/** Floats per emitted line vertex: position pair plus field intensity. */
 const FLOATS_PER_GRID_VERTEX = 3;
 
-/**
- * Builds a screen-covering lattice and sinks each vertex into the gravity
- * well beneath it. Displacement points along the local field direction with
- * a magnitude driven by softened potential compressed through tanh, so
- * wells read as smooth funnels instead of clamped spikes. Intensity mirrors
- * the compression fraction so lines brighten as they sink.
- */
+/** Displace a lattice into gravity wells. Intensity mirrors field strength. */
 export class GridField {
   private points = new Float32Array(0);
   private cols = 0;
@@ -72,7 +60,6 @@ export class GridField {
           ay += (dy * view[o + 4]) / (r2 + eps2);
           phi += view[o + 4] / Math.sqrt(r2 + eps2);
         }
-        // tanh gives smooth saturation toward GRID_BEND_MAX without a kink.
         const mag = GRID_BEND_MAX * Math.tanh(phi * GRID_BEND_SCALE);
         const alen = Math.hypot(ax, ay);
         let ox = 0;
@@ -90,7 +77,6 @@ export class GridField {
     this.emitSegments();
   }
 
-  /** Expand the lattice into LINES-ready vertex pairs, sharing displaced points. */
   private emitSegments() {
     const { cols, rows } = this;
     const segments = 2 * ((cols - 1) * rows + cols * (rows - 1));
@@ -101,14 +87,11 @@ export class GridField {
     const out = this.geometry.verts;
     const pts = this.points;
     let w = 0;
-    // Endpoint intensity: major lines start lifted toward the bright color,
-    // field proximity then pushes both tiers the rest of the way.
     const intensity = (p: number, isMajor: boolean) => {
       const base = isMajor ? GRID_MAJOR_INTENSITY : 0;
       return base + (1 - base) * pts[p + 2];
     };
-    // Major-ness anchors to world coordinates so lines keep their role
-    // across window resizes.
+    // Major-ness anchors to world coordinates for resize stability.
     const rowMajor = (r: number) =>
       Math.round((-this.halfH + r * this.spacing) / this.spacing) % GRID_MAJOR_EVERY === 0;
     const colMajor = (c: number) =>

@@ -2,9 +2,8 @@ import { GRID_COLOR_BRIGHT, GRID_COLOR_DIM, WORLD_CENTER } from './constants';
 import { GRID_FRAG_SRC, GRID_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
 
-const FLOATS_PER_VERTEX = 3; // [x, y, intensity]
+const FLOATS_PER_VERTEX = 3;
 
-/** Draws world-space line segments with the shared camera transform. */
 export class LineLayer {
   private gl: WebGL2RenderingContext;
   private prog: Program;

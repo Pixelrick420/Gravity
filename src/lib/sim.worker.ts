@@ -59,9 +59,7 @@ function applyPatch(patch: ParamsPatch) {
 let lastT = 0;
 let fpsEma = 60;
 let lastStatsPost = 0;
-/** Leftover sim-time budget, in ms, carried between frames. */
 let substepAccMs = 0;
-/** Interpolation fraction used by the previous render. */
 let prevRenderAlpha = 0;
 
 function frame(t: number) {
@@ -73,10 +71,9 @@ function frame(t: number) {
   fpsEma = fpsEma * FPS_EMA_DECAY + (1000 / Math.max(frameDtMs, 1)) * (1 - FPS_EMA_DECAY);
 
   try {
-    // Speed scales the sim-time budget, never the per-step dt. `alpha` is
-    // the leftover fraction of a step; rendering between the last two states
-    // at that fraction makes motion smooth at any speed, even with zero
-    // steps this frame.
+    // Speed scales the sim-time budget, not the per-step dt. Alpha is the
+    // leftover fraction of a step; rendering at that fraction smooths
+    // motion at any speed, even with zero steps this frame.
     if (!state.params.paused && !state.halted) substepAccMs += frameDtMs * state.params.speed;
     const stepMs = state.params.dt * 1000;
     const budget = Math.floor(substepAccMs / stepMs);
@@ -90,9 +87,8 @@ function frame(t: number) {
     const alpha = substepAccMs / stepMs;
     state.sim.render(alpha);
 
-    // Sim time actually shown since the last render: executed steps plus the
-    // interpolation-fraction change. Pausing leaves this at zero, so trails
-    // freeze instead of fading away.
+    // Executed steps plus interpolation-fraction change. Pausing leaves
+    // this at zero, so trails freeze instead of fade.
     let simDeltaMs = executed * stepMs + (alpha - prevRenderAlpha) * stepMs;
     prevRenderAlpha = alpha;
     if (simDeltaMs < 0) simDeltaMs = 0;
@@ -108,7 +104,6 @@ function frame(t: number) {
   const view = syncView();
   const zoom = zoomOf(state.renderer.canvas.width, state.renderer.canvas.height);
 
-  // Refresh the displaced grid at a cadence that scales with the field cost.
   const interval = Math.min(GRID_REFRESH_MAX_INTERVAL, Math.ceil(count / GRID_REFRESH_DIVISOR));
   const pausedEdge = state.params.paused && !wasPaused;
   wasPaused = state.params.paused;
@@ -126,8 +121,6 @@ function frame(t: number) {
 
   state.renderer.ensureCapacity(count);
 
-  // One streak per particle from the previous frame's position. Snapshot
-  // positions even with trails off so re-enabling never draws a long jump.
   const pairFloats = count * 2;
   if (prevPos.length !== pairFloats) {
     prevPos = new Float32Array(pairFloats);

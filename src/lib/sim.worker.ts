@@ -225,7 +225,7 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
   switch (msg.type) {
     case 'init': {
       try {
-        state.wasm = await init(wasmUrl);
+        state.wasm = await init({ module_or_path: wasmUrl });
         state.sim = new Simulation(state.params.count, state.params.seed, state.params.distribution);
         state.len = -1;
         state.renderer = new Renderer(msg.canvas);

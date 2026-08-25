@@ -27,6 +27,7 @@ export const GRID_BEND_SCALE = 3.36e-4;
 export const GRID_FIELD_EPS2 = 0.01;
 export const GRID_REFRESH_DIVISOR = 2000;
 export const GRID_REFRESH_MAX_INTERVAL = 6;
+export const GRID_VIEWPORT_MARGIN = 2;
 export const TRAIL_FADE_ALPHA = 0.1;
 
 export const SPEED_SLIDER_MIN = 0;

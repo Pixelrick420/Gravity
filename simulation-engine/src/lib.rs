@@ -1,9 +1,9 @@
 mod complex;
-mod config;
 mod fmm;
-mod sim;
 #[cfg(test)]
 mod testutil;
+pub mod config;
+pub mod sim;
 
 use config::{parse_distribution, Config, MAX_PARTICLES};
 use sim::{velocity_verlet_step, Particles};

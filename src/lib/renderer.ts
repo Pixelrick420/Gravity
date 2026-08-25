@@ -4,33 +4,46 @@ import {
   FLOATS_PER_PARTICLE,
   INSTANCE_BUFFER_GROWTH,
   INSTANCE_BUFFER_MIN_CAPACITY,
+  trailFadeAlpha,
   WORLD_CENTER,
 } from './constants';
 import { FRAG_SRC, VERT_SRC } from './shaders';
+import { createProgram } from './glutil';
+import { LineLayer } from './lineLayer';
+import type { GridGeometry } from './gridField';
+import { TrailBuffer } from './trailBuffer';
+import { TrailStamper } from './trailStamper';
 
 const VERTICES_PER_QUAD = 6;
 
-function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
-  const sh = gl.createShader(type)!;
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    throw new Error(`shader compile failed: ${gl.getShaderInfoLog(sh) ?? ''}`);
-  }
-  return sh;
+export interface TrailSegments {
+  /** Interleaved [prevX, prevY, posX, posY, velX, velY] per particle. */
+  verts: Float32Array;
+  count: number;
 }
 
-/** WebGL2 instanced-quad renderer. Draws straight from wasm memory. */
+export interface DrawOptions {
+  zoomPxPerUnit: number;
+  sizePx: number;
+  showGrid: boolean;
+  showTrails: boolean;
+  /** Simulated ms elapsed since the previous render; drives trail decay. */
+  simDeltaMs: number;
+  grid: GridGeometry | null;
+  trailSegs: TrailSegments | null;
+}
+
+/** WebGL2 renderer: particles plus optional curved grid and trail buffer. */
 export class Renderer {
   private gl: WebGL2RenderingContext;
-  private program: WebGLProgram;
+  private prog!: ReturnType<typeof createProgram>;
   private vao: WebGLVertexArrayObject;
   private instanceBuf: WebGLBuffer;
-  private uniHalf: WebGLUniformLocation;
-  private uniCam: WebGLUniformLocation;
-  private uniZoom: WebGLUniformLocation;
-  private uniSize: WebGLUniformLocation;
   private capacity = 0;
+  private trail: TrailBuffer;
+  private gridLayer: LineLayer;
+  private trailStamper: TrailStamper;
+  private trailsOn = false;
 
   readonly canvas: OffscreenCanvas;
 
@@ -48,18 +61,7 @@ export class Renderer {
     this.canvas = canvas;
     this.gl = gl;
 
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT_SRC));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC));
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      throw new Error(`program link failed: ${gl.getProgramInfoLog(prog) ?? ''}`);
-    }
-    this.program = prog;
-    this.uniHalf = gl.getUniformLocation(prog, 'u_half')!;
-    this.uniCam = gl.getUniformLocation(prog, 'u_camCenter')!;
-    this.uniZoom = gl.getUniformLocation(prog, 'u_zoom')!;
-    this.uniSize = gl.getUniformLocation(prog, 'u_size')!;
+    this.prog = createProgram(gl, VERT_SRC, FRAG_SRC);
 
     this.vao = gl.createVertexArray()!;
     gl.bindVertexArray(this.vao);
@@ -81,7 +83,10 @@ export class Renderer {
 
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
+    this.trail = new TrailBuffer(gl);
+    this.gridLayer = new LineLayer(gl);
+    this.trailStamper = new TrailStamper(gl);
   }
 
   resize(width: number, height: number) {
@@ -98,19 +103,68 @@ export class Renderer {
     this.gl.bufferData(this.gl.ARRAY_BUFFER, this.capacity * BYTES_PER_PARTICLE, this.gl.DYNAMIC_DRAW);
   }
 
-  draw(view: Float32Array, count: number, zoomPxPerUnit: number, sizePx: number) {
+  draw(view: Float32Array, count: number, opts: DrawOptions) {
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, view, 0, count * FLOATS_PER_PARTICLE);
 
-    gl.clearColor(CLEAR_COLOR[0], CLEAR_COLOR[1], CLEAR_COLOR[2], CLEAR_COLOR[3]);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(this.program);
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    if (opts.showTrails) {
+      this.trail.ensureSize(w, h);
+      if (!this.trailsOn) this.trail.clear();
+      this.trailsOn = true;
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.trail.framebuffer);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      this.trail.fade(trailFadeAlpha(opts.simDeltaMs));
+      if (opts.trailSegs && opts.trailSegs.count > 0) {
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        this.trailStamper.draw(
+          opts.trailSegs.verts,
+          opts.trailSegs.count,
+          opts.zoomPxPerUnit,
+          w / 2,
+          h / 2,
+        );
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      gl.disable(gl.BLEND);
+      this.trail.present();
+    } else {
+      this.trailsOn = false;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.clearColor(CLEAR_COLOR[0], CLEAR_COLOR[1], CLEAR_COLOR[2], CLEAR_COLOR[3]);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    if (opts.showGrid && opts.grid && opts.grid.count > 0) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      this.gridLayer.draw(
+        opts.grid.verts,
+        opts.grid.count,
+        opts.zoomPxPerUnit,
+        w / 2,
+        h / 2,
+      );
+    }
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+    this.drawParticles(count, opts);
+  }
+
+  private drawParticles(count: number, opts: DrawOptions) {
+    const gl = this.gl;
+    gl.useProgram(this.prog.program);
+    gl.uniform2f(this.prog.u('u_half'), this.canvas.width / 2, this.canvas.height / 2);
+    gl.uniform2f(this.prog.u('u_camCenter'), WORLD_CENTER.x, WORLD_CENTER.y);
+    gl.uniform1f(this.prog.u('u_zoom'), opts.zoomPxPerUnit);
+    gl.uniform1f(this.prog.u('u_size'), opts.sizePx);
     gl.bindVertexArray(this.vao);
-    gl.uniform2f(this.uniHalf, this.canvas.width / 2, this.canvas.height / 2);
-    gl.uniform2f(this.uniCam, WORLD_CENTER.x, WORLD_CENTER.y);
-    gl.uniform1f(this.uniZoom, zoomPxPerUnit);
-    gl.uniform1f(this.uniSize, sizePx);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, VERTICES_PER_QUAD, count);
     gl.bindVertexArray(null);
   }

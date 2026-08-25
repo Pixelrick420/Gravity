@@ -1,6 +1,8 @@
 // Particle appearance constants, interpolated into the GLSL below.
 const MASS_SIZE_FACTOR = 0.8;
-const SPEED_TINT_RATE = 1.2;
+// Calibrated so the pooled median speed across all distributions/seeds maps
+// to mid-tint (see gitignored simulation-engine/src/bin/speed_stats.rs).
+const SPEED_TINT_RATE = 0.03;
 const PARTICLE_BRIGHTNESS = 1.15;
 const PARTICLE_ALPHA = 0.95;
 
@@ -44,10 +46,114 @@ out vec4 fragColor;
 
 void main() {
   // slow = blue, fast = gold; additive blending blooms overlaps
-  float t = clamp(length(v_vel) * ${SPEED_TINT_RATE.toFixed(1)}, 0.0, 1.0);
+  float t = clamp(length(v_vel) * ${SPEED_TINT_RATE.toFixed(3)}, 0.0, 1.0);
   vec3 cool = vec3(0.55, 0.80, 1.00);
   vec3 warm = vec3(1.00, 0.75, 0.35);
   vec3 tint = mix(cool, warm, t);
   fragColor = vec4(tint * ${PARTICLE_BRIGHTNESS.toFixed(2)}, ${PARTICLE_ALPHA.toFixed(2)});
+}
+`;
+
+// Trail streaks: instanced line segments, gl_VertexID picks the endpoint.
+export const TRAIL_VERT_SRC = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec2 i_prev;
+layout(location = 1) in vec2 i_pos;
+layout(location = 2) in vec2 i_vel;
+
+uniform vec2 u_half;
+uniform vec2 u_camCenter;
+uniform float u_zoom;
+
+out vec2 v_vel;
+
+void main() {
+  vec2 world = gl_VertexID == 0 ? i_prev : i_pos;
+  gl_Position = vec4(
+    ((world.x - u_camCenter.x) * u_zoom) / u_half.x,
+    -((world.y - u_camCenter.y) * u_zoom) / u_half.y,
+    0.0,
+    1.0
+  );
+  v_vel = i_vel;
+}
+`;
+
+export const GRID_VERT_SRC = `#version 300 es
+precision highp float;
+
+layout(location = 0) in vec2 i_world;
+layout(location = 1) in float i_intensity;
+
+uniform vec2 u_half;
+uniform vec2 u_camCenter;
+uniform float u_zoom;
+
+out float v_intensity;
+
+void main() {
+  gl_Position = vec4(
+    ((i_world.x - u_camCenter.x) * u_zoom) / u_half.x,
+    -((i_world.y - u_camCenter.y) * u_zoom) / u_half.y,
+    0.0,
+    1.0
+  );
+  v_intensity = i_intensity;
+}
+`;
+
+export const GRID_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform vec4 u_dimColor;
+uniform vec4 u_brightColor;
+
+in float v_intensity;
+out vec4 fragColor;
+
+void main() {
+  fragColor = mix(u_dimColor, u_brightColor, clamp(v_intensity, 0.0, 1.0));
+}
+`;
+
+// Fullscreen quad from gl_VertexID; attribute-less draws need an empty VAO.
+export const QUAD_VERT_SRC = `#version 300 es
+precision highp float;
+
+out vec2 v_uv;
+
+void main() {
+  const vec2 corners[6] = vec2[6](
+    vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
+    vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0)
+  );
+  vec2 c = corners[gl_VertexID];
+  v_uv = c * 0.5 + 0.5;
+  gl_Position = vec4(c, 0.0, 1.0);
+}
+`;
+
+export const FADE_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform vec4 u_color;
+in vec2 v_uv;
+out vec4 fragColor;
+
+void main() {
+  fragColor = u_color;
+}
+`;
+
+export const COPY_FRAG_SRC = `#version 300 es
+precision highp float;
+
+uniform sampler2D u_tex;
+in vec2 v_uv;
+out vec4 fragColor;
+
+void main() {
+  fragColor = texture(u_tex, v_uv);
 }
 `;

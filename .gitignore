@@ -2,3 +2,4 @@ node_modules/
 dist/
 simulation-engine/target/
 simulation-engine/pkg/
+simulation-engine/src/bin/

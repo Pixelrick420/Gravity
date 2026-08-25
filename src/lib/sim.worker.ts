@@ -1,6 +1,7 @@
 import init, { Simulation } from '../../simulation-engine/pkg/simulation_engine.js';
 import wasmUrl from '../../simulation-engine/pkg/simulation_engine_bg.wasm?url';
 import type { InitOutput } from '../../simulation-engine/pkg/simulation_engine.js';
+import { GridField } from './gridField';
 import { Renderer } from './renderer';
 import {
   DEFAULT_PARAMS,
@@ -8,10 +9,13 @@ import {
   FLOATS_PER_PARTICLE,
   FPS_EMA_DECAY,
   FRAME_DT_CLAMP_MS,
+  GRID_REFRESH_DIVISOR,
+  GRID_REFRESH_MAX_INTERVAL,
   MAX_SUBSTEPS,
   STATS_INTERVAL_MS,
 } from './constants';
 import { zoomOf } from './world';
+import type { TrailSegments } from './renderer';
 import type { FromWorker, ParamsPatch, ToWorker } from './messages';
 
 const post = (msg: FromWorker) => self.postMessage(msg);
@@ -25,7 +29,16 @@ const state = {
   len: -1,
   params: { ...DEFAULT_PARAMS },
   halted: false,
+  simDeltaMs: 0,
 };
+
+const gridField = new GridField();
+let fieldAge = Number.MAX_SAFE_INTEGER;
+let wasPaused = false;
+
+const trailSegs: TrailSegments = { verts: new Float32Array(0), count: 0 };
+let prevPos = new Float32Array(0);
+let prevValid = false;
 
 function syncView(): Float32Array {
   const sim = state.sim!;
@@ -48,6 +61,8 @@ let fpsEma = 60;
 let lastStatsPost = 0;
 /** Leftover sim-time budget, in ms, carried between frames. */
 let substepAccMs = 0;
+/** Interpolation fraction used by the previous render. */
+let prevRenderAlpha = 0;
 
 function frame(t: number) {
   if (!state.renderer || !state.sim || !state.wasm) return;
@@ -68,12 +83,20 @@ function frame(t: number) {
     substepAccMs -= budget * stepMs;
     if (substepAccMs > MAX_SUBSTEPS * stepMs) substepAccMs = MAX_SUBSTEPS * stepMs;
 
-    let substeps = Math.min(MAX_SUBSTEPS, budget);
-    while (substeps-- > 0) {
+    const executed = Math.min(MAX_SUBSTEPS, budget);
+    for (let s = 0; s < executed; s++) {
       state.sim.step(state.params.dt);
     }
     const alpha = substepAccMs / stepMs;
     state.sim.render(alpha);
+
+    // Sim time actually shown since the last render: executed steps plus the
+    // interpolation-fraction change. Pausing leaves this at zero, so trails
+    // freeze instead of fading away.
+    let simDeltaMs = executed * stepMs + (alpha - prevRenderAlpha) * stepMs;
+    prevRenderAlpha = alpha;
+    if (simDeltaMs < 0) simDeltaMs = 0;
+    state.simDeltaMs = simDeltaMs;
   } catch (err) {
     if (!state.halted) {
       state.halted = true;
@@ -82,13 +105,69 @@ function frame(t: number) {
   }
 
   const count = state.sim.count();
+  const view = syncView();
+  const zoom = zoomOf(state.renderer.canvas.width, state.renderer.canvas.height);
+
+  // Refresh the displaced grid at a cadence that scales with the field cost.
+  const interval = Math.min(GRID_REFRESH_MAX_INTERVAL, Math.ceil(count / GRID_REFRESH_DIVISOR));
+  const pausedEdge = state.params.paused && !wasPaused;
+  wasPaused = state.params.paused;
+  if (pausedEdge || (!state.params.paused && fieldAge >= interval)) {
+    gridField.update(
+      view,
+      count,
+      state.renderer.canvas.width / (2 * zoom),
+      state.renderer.canvas.height / (2 * zoom),
+    );
+    fieldAge = 0;
+  } else {
+    fieldAge++;
+  }
+
   state.renderer.ensureCapacity(count);
-  state.renderer.draw(
-    syncView(),
-    count,
-    zoomOf(state.renderer.canvas.width, state.renderer.canvas.height),
-    state.params.particleSize,
-  );
+
+  // One streak per particle from the previous frame's position. Snapshot
+  // positions even with trails off so re-enabling never draws a long jump.
+  const pairFloats = count * 2;
+  if (prevPos.length !== pairFloats) {
+    prevPos = new Float32Array(pairFloats);
+    prevValid = false;
+  }
+  let segs: TrailSegments | null = null;
+  if (state.params.showTrails && prevValid) {
+    const segFloats = count * 6;
+    if (trailSegs.verts.length < segFloats) {
+      trailSegs.verts = new Float32Array(segFloats);
+    }
+    const out = trailSegs.verts;
+    for (let i = 0; i < count; i++) {
+      const o = i * FLOATS_PER_PARTICLE;
+      const s = i * 6;
+      out[s] = prevPos[i * 2];
+      out[s + 1] = prevPos[i * 2 + 1];
+      out[s + 2] = view[o];
+      out[s + 3] = view[o + 1];
+      out[s + 4] = view[o + 2];
+      out[s + 5] = view[o + 3];
+    }
+    trailSegs.count = count;
+    segs = trailSegs;
+  }
+  for (let i = 0; i < count; i++) {
+    prevPos[i * 2] = view[i * FLOATS_PER_PARTICLE];
+    prevPos[i * 2 + 1] = view[i * FLOATS_PER_PARTICLE + 1];
+  }
+  prevValid = true;
+
+  state.renderer.draw(view, count, {
+    zoomPxPerUnit: zoom,
+    sizePx: state.params.particleSize,
+    showGrid: state.params.showGrid,
+    showTrails: state.params.showTrails,
+    simDeltaMs: state.simDeltaMs,
+    grid: gridField.geometry,
+    trailSegs: segs,
+  });
 
   if (t - lastStatsPost > STATS_INTERVAL_MS) {
     lastStatsPost = t;
@@ -124,6 +203,8 @@ self.onmessage = async (ev: MessageEvent<ToWorker>) => {
     case 'reset': {
       state.halted = false;
       state.len = -1;
+      fieldAge = Number.MAX_SAFE_INTEGER;
+      prevValid = false;
       try {
         state.sim?.reset(msg.count, msg.seed, msg.distribution);
         state.params.count = msg.count;

@@ -14,11 +14,13 @@ export interface SimParamsSnapshot {
   speed: number;
   particleSize: number;
   paused: boolean;
+  showGrid: boolean;
+  showTrails: boolean;
 }
 
 /** Fields the UI can change while the simulation runs. */
 export type ParamsPatch = Partial<
-  Pick<SimParamsSnapshot, 'speed' | 'particleSize' | 'paused'>
+  Pick<SimParamsSnapshot, 'speed' | 'particleSize' | 'paused' | 'showGrid' | 'showTrails'>
 >;
 
 export type ToWorker =

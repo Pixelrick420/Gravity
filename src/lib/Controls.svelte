@@ -1,5 +1,6 @@
 <script lang="ts">
   import { simParams } from './simParams.svelte';
+  import { SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
   import type { ParamsPatch, ToWorker } from './messages';
   import { Play, Pause } from '@lucide/svelte';
 
@@ -13,12 +14,14 @@
       speed: simParams.speed,
       particleSize: simParams.particleSize,
       paused: simParams.paused,
+      showGrid: simParams.showGrid,
+      showTrails: simParams.showTrails,
     };
     post({ type: 'params', patch });
   });
 
   interface SliderSpec {
-    key: 'count' | 'particleSize' | 'speed';
+    key: 'count' | 'particleSize' | 'speedUi';
     label: string;
     min: number;
     max: number;
@@ -31,7 +34,7 @@
   const sliders: SliderSpec[] = [
     { key: 'count', label: 'Particles', min: 100, max: 10000, step: 100, format: (v) => String(Math.round(v)) },
     { key: 'particleSize', label: 'Particle size', min: 1, max: 10, step: 0.5, format: fmt(1) },
-    { key: 'speed', label: 'Speed', min: 0.005, max: 0.125, step: 0.005, format: fmt(3) },
+    { key: 'speedUi', label: 'Speed', min: SPEED_SLIDER_MIN, max: SPEED_SLIDER_MAX, step: 1, format: (v) => String(Math.round(v)) },
   ];
 
   const distributions: Array<{ value: string; label: string }> = [
@@ -81,6 +84,17 @@
       <output>{(spec.format ?? String)(simParams[spec.key])}</output>
     </label>
   {/each}
+
+  <hr class="my-1 border-edge" />
+
+  <label class="flex cursor-pointer items-center justify-between">
+    <span>Grid lines</span>
+    <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showGrid} />
+  </label>
+  <label class="flex cursor-pointer items-center justify-between">
+    <span>Trails</span>
+    <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showTrails} />
+  </label>
 
   <hr class="my-1 border-edge" />
 

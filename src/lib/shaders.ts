@@ -1,4 +1,3 @@
-// Median speed -> mid-tint (see simulation-engine/src/bin/speed_stats.rs).
 const SPEED_TINT_RATE = 0.03;
 const PARTICLE_BRIGHTNESS = 1.15;
 const PARTICLE_ALPHA = 0.95;
@@ -120,7 +119,6 @@ void main() {
 }
 `;
 
-// Attribute-less fullscreen quad via gl_VertexID.
 export const QUAD_VERT_SRC = `#version 300 es
 precision highp float;
 

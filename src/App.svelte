@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { FromWorker, ToWorker } from './lib/messages';
   import { simParams } from './lib/simParams.svelte';
   import SimCanvas from './lib/SimCanvas.svelte';
@@ -22,10 +23,8 @@
 
   let cogX = $state(0);
   let cogY = $state(0);
-  let comX = $state(0);
-  let comY = $state(0);
-  let comTargetX = 0;
-  let comTargetY = 0;
+
+
 
   const post = (msg: ToWorker) => worker.postMessage(msg);
 
@@ -35,29 +34,23 @@
     post({ type: 'camera', camCenterX, camCenterY, zoom });
   }
 
-  let lastFrameT = 0;
-  function smoothCom(t: number) {
-    requestAnimationFrame(smoothCom);
-    if (lastFrameT === 0) { lastFrameT = t; return; }
-    const dt = Math.min(t - lastFrameT, 50);
-    lastFrameT = t;
-    const decay = 1 - Math.pow(0.01, dt / 1000);
-    comX += (comTargetX - comX) * decay;
-    comY += (comTargetY - comY) * decay;
-  }
-  requestAnimationFrame(smoothCom);
-
   worker.onmessage = (ev: MessageEvent<FromWorker>) => {
     const msg = ev.data;
     if (msg.type === 'stats') {
       fps = msg.fps;
       cogX = msg.cogX;
       cogY = msg.cogY;
-      comTargetX = msg.comX;
-      comTargetY = msg.comY;
     } else if (msg.type === 'ready') {
       canvasReady = true;
       postCamera();
+      post({ type: 'params', patch: simParams.realTimePatch() });
+      post({
+        type: 'reset',
+        count: Math.round(simParams.count),
+        seed: Math.round(simParams.seed),
+        distribution: simParams.distribution,
+        particleMass: simParams.particleMass,
+      });
     } else if (msg.type === 'error') {
       error = msg.message;
     }
@@ -140,6 +133,7 @@
   let touchCount = 0;
 
   function handleTouchStart(e: TouchEvent) {
+    if ((e.target as HTMLElement)?.closest('button, a, input, select, textarea')) return;
     e.preventDefault();
     touchCount = e.touches.length;
     if (touchCount === 1) {
@@ -209,9 +203,20 @@
     if (touchCount < 2) lastTouchDist = 0;
   }
 
+  let container: HTMLDivElement;
+  const touchOpts: AddEventListenerOptions = { passive: false };
+
+  onMount(() => {
+    container.addEventListener('touchstart', handleTouchStart, touchOpts);
+    container.addEventListener('touchmove', handleTouchMove, touchOpts);
+    container.addEventListener('touchend', handleTouchEnd, touchOpts);
+    container.addEventListener('wheel', handleWheel, { passive: false });
+  });
+
   function recenter() {
     camCenterX = cogX;
     camCenterY = cogY;
+    zoom = 1;
     postCamera();
   }
 </script>
@@ -224,14 +229,11 @@
 
 <main class="relative h-dvh w-full overflow-hidden bg-void font-sans text-ink">
   <div
+    bind:this={container}
     class="absolute inset-0"
     onmousedown={handleMouseDown}
     onmousemove={handleMouseMove}
-    onwheel={handleWheel}
     oncontextmenu={(e) => e.preventDefault()}
-    ontouchstart={handleTouchStart}
-    ontouchmove={handleTouchMove}
-    ontouchend={handleTouchEnd}
     role="presentation"
   >
     <SimCanvas {worker} />
@@ -263,42 +265,19 @@
         {@const sx = (canvas.width / 2 + (cogX - camCenterX) / worldScale) / window.devicePixelRatio}
         {@const sy = (canvas.height / 2 + (cogY - camCenterY) / worldScale) / window.devicePixelRatio}
         <div
-          class="pointer-events-none absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-400 shadow-[0_0_6px_2px_rgba(52,211,153,0.5)]"
+          title="Center of gravity"
+          class="pointer-events-none absolute z-10 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-400/70 shadow-[0_0_4px_1px_rgba(45,212,191,0.3)]"
           style="left:{sx}px;top:{sy}px"
         ></div>
       {/if}
     {/if}
-    {#if simParams.showCenterOfMass}
-      {@const canvas = document.querySelector('canvas')}
-      {#if canvas}
-        {@const baseZoom = Math.min(canvas.width, canvas.height) * 0.5}
-        {@const worldScale = 1 / (baseZoom * zoom)}
-        {@const sx = (canvas.width / 2 + (comX - camCenterX) / worldScale) / window.devicePixelRatio}
-        {@const sy = (canvas.height / 2 + (comY - camCenterY) / worldScale) / window.devicePixelRatio}
-        <div
-          class="pointer-events-none absolute z-10 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_6px_2px_rgba(239,68,68,0.5)]"
-          style="left:{sx}px;top:{sy}px"
-        ></div>
-      {/if}
-    {/if}
-    {#if simParams.showCenterOfGravity}
-      <button
-        type="button"
-        class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover"
-        onclick={recenter}
-      >
-        Recenter
-      </button>
-    {/if}
-    {#if simParams.showCenterOfMass}
-      <button
-        type="button"
-        class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover"
-        onclick={() => { camCenterX = comX; camCenterY = comY; postCamera(); }}
-      >
-        Recenter (mass)
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover"
+      onclick={recenter}
+    >
+      Recenter
+    </button>
   </div>
   {#if panelOpen}
     <Controls {worker} />

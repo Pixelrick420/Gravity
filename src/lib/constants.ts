@@ -10,7 +10,7 @@ export const FIRST_FRAME_MS = 16.7;
 export const FRAME_DT_CLAMP_MS = 50;
 export const MAX_SUBSTEPS = 32;
 export const FPS_EMA_DECAY = 0.9;
-export const STATS_INTERVAL_MS = 500;
+export const STATS_INTERVAL_MS = 200;
 
 export const INSTANCE_BUFFER_MIN_CAPACITY = 1024;
 export const INSTANCE_BUFFER_GROWTH = 2;
@@ -67,7 +67,6 @@ export const DEFAULT_PARAMS = {
   showGrid: true,
   showTrails: false,
   showCenterOfGravity: false,
-  showCenterOfMass: false,
 };
 
 export const TRAIL_FADE_SIM_MS_PER_FRAME = DEFAULT_PARAMS.speed * FIRST_FRAME_MS;

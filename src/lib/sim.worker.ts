@@ -198,27 +198,19 @@ function frame(t: number) {
     lastStatsPost = t;
     let cogX = 0;
     let cogY = 0;
-    let comX = 0;
-    let comY = 0;
     let totalMass = 0;
     for (let i = 0; i < count; i++) {
       const o = i * FLOATS_PER_PARTICLE;
       const m = view[o + 4];
       cogX += view[o] * m;
       cogY += view[o + 1] * m;
-      comX += view[o];
-      comY += view[o + 1];
       totalMass += m;
     }
     if (totalMass > 0) {
       cogX /= totalMass;
       cogY /= totalMass;
     }
-    if (count > 0) {
-      comX /= count;
-      comY /= count;
-    }
-    post({ type: 'stats', fps: Math.round(fpsEma), cogX, cogY, comX, comY });
+    post({ type: 'stats', fps: Math.round(fpsEma), cogX, cogY });
   }
 }
 

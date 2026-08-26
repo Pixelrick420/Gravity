@@ -2,7 +2,6 @@ import { CLEAR_COLOR } from './constants';
 import { COPY_FRAG_SRC, FADE_FRAG_SRC, QUAD_VERT_SRC } from './shaders';
 import { createProgram, type Program } from './glutil';
 
-/** Accumulation texture for fading particle trails. */
 export class TrailBuffer {
   private gl: WebGL2RenderingContext;
   private fadeProg: Program;

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { simParams } from './simParams.svelte';
   import { PARTICLE_MASS_MIN, PARTICLE_MASS_MAX, PARTICLE_SIZE_MIN, PARTICLE_SIZE_MAX, SPEED_SLIDER_MAX, SPEED_SLIDER_MIN } from './constants';
-  import type { ParamsPatch, ToWorker } from './messages';
+  import type { ToWorker } from './messages';
 
   let { worker }: { worker: Worker } = $props();
 
@@ -22,15 +22,7 @@
   );
 
   $effect(() => {
-    const patch: ParamsPatch = {
-      showGrid: simParams.showGrid,
-      showTrails: simParams.showTrails,
-      showCenterOfGravity: simParams.showCenterOfGravity,
-      showCenterOfMass: simParams.showCenterOfMass,
-      speed: simParams.speed,
-      particleSize: simParams.particleSize,
-    };
-    post({ type: 'params', patch });
+    post({ type: 'params', patch: simParams.realTimePatch() });
   });
 
   const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);
@@ -60,6 +52,7 @@
       particleMass: lastApplied.particleMass,
     });
     simParams.paused = false;
+    simParams.save();
   }
 </script>
 
@@ -125,9 +118,5 @@
   <label class="flex cursor-pointer items-center justify-between">
     <span>Center of gravity</span>
     <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showCenterOfGravity} />
-  </label>
-  <label class="flex cursor-pointer items-center justify-between">
-    <span>Center of mass</span>
-    <input class="size-4 accent-accent" type="checkbox" bind:checked={simParams.showCenterOfMass} />
   </label>
 </aside>

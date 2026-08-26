@@ -10,22 +10,22 @@ export const FIRST_FRAME_MS = 16.7;
 export const FRAME_DT_CLAMP_MS = 50;
 export const MAX_SUBSTEPS = 32;
 export const FPS_EMA_DECAY = 0.9;
-export const STATS_INTERVAL_MS = 200;
+export const STATS_INTERVAL_MS = 50;
 
 export const INSTANCE_BUFFER_MIN_CAPACITY = 1024;
 export const INSTANCE_BUFFER_GROWTH = 2;
 
-export const GRID_SPACING = 0.05;
+export const GRID_SPACING = 0.1;
 export const GRID_MAX_CELLS = 60;
-export const GRID_COLOR_DIM: readonly [number, number, number, number] = [0.45, 0.6, 0.85, 0.03];
-export const GRID_COLOR_BRIGHT: readonly [number, number, number, number] = [0.65, 0.82, 1.0, 0.45];
+export const GRID_COLOR_DIM: readonly [number, number, number, number] = [0.5, 0.7, 1.0, 0.1];
+export const GRID_COLOR_BRIGHT: readonly [number, number, number, number] = [0.5, 0.7, 1.0, 0.1];
 export const GRID_MAJOR_EVERY = 5;
 export const GRID_MAJOR_INTENSITY = 0.3;
 export const GRID_BEND_MAX = 0.21;
 export const GRID_BEND_SCALE = 3.36e-4;
 export const GRID_FIELD_EPS2 = 0.01;
 export const GRID_REFRESH_DIVISOR = 200;
-export const GRID_REFRESH_MAX_INTERVAL = 6;
+export const GRID_REFRESH_MAX_INTERVAL = 1;
 export const GRID_VIEWPORT_MARGIN = 2;
 export const TRAIL_FADE_ALPHA = 0.1;
 

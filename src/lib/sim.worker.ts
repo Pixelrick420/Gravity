@@ -40,6 +40,9 @@ const state = {
 const gridField = new GridField();
 let fieldAge = Number.MAX_SAFE_INTEGER;
 let wasPaused = false;
+let prevCamX = 0;
+let prevCamY = 0;
+let prevZoom = 1;
 
 const trailSegs: TrailSegments = { verts: new Float32Array(0), count: 0 };
 let prevPos = new Float32Array(0);
@@ -140,8 +143,12 @@ function frame(t: number) {
   const interval = Math.min(GRID_REFRESH_MAX_INTERVAL, Math.ceil(count / GRID_REFRESH_DIVISOR));
   const pausedEdge = state.params.paused && !wasPaused;
   wasPaused = state.params.paused;
+  const camChanged = state.camCenterX !== prevCamX || state.camCenterY !== prevCamY || state.zoom !== prevZoom;
+  prevCamX = state.camCenterX;
+  prevCamY = state.camCenterY;
+  prevZoom = state.zoom;
 
-  if (pausedEdge || (!state.params.paused && fieldAge >= interval)) {
+  if (pausedEdge || camChanged || (!state.params.paused && fieldAge >= interval)) {
     gridField.update(view, count, halfW, halfH, state.camCenterX, state.camCenterY);
     fieldAge = 0;
   } else {

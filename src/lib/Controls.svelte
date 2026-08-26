@@ -23,6 +23,7 @@
 
   $effect(() => {
     post({ type: 'params', patch: simParams.realTimePatch() });
+    simParams.save();
   });
 
   const fmt = (decimals: number) => (v: number) => v.toFixed(decimals);

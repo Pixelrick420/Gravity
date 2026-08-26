@@ -23,6 +23,20 @@
 
   let cogX = $state(0);
   let cogY = $state(0);
+  let cogTargetX = 0;
+  let cogTargetY = 0;
+
+  let lastFrameT = 0;
+  function smoothCog(t: number) {
+    requestAnimationFrame(smoothCog);
+    if (lastFrameT === 0) { lastFrameT = t; return; }
+    const dt = Math.min(t - lastFrameT, 50);
+    lastFrameT = t;
+    const decay = 1 - Math.pow(0.001, dt / 1000);
+    cogX += (cogTargetX - cogX) * decay;
+    cogY += (cogTargetY - cogY) * decay;
+  }
+  requestAnimationFrame(smoothCog);
 
 
 
@@ -38,8 +52,8 @@
     const msg = ev.data;
     if (msg.type === 'stats') {
       fps = msg.fps;
-      cogX = msg.cogX;
-      cogY = msg.cogY;
+      cogTargetX = msg.cogX;
+      cogTargetY = msg.cogY;
     } else if (msg.type === 'ready') {
       canvasReady = true;
       postCamera();
@@ -51,6 +65,10 @@
         distribution: simParams.distribution,
         particleMass: simParams.particleMass,
       });
+      if (simParams.showCenterOfGravity) {
+        simParams.showCenterOfGravity = false;
+        setTimeout(() => (simParams.showCenterOfGravity = true), 50);
+      }
     } else if (msg.type === 'error') {
       error = msg.message;
     }
@@ -219,6 +237,17 @@
     zoom = 1;
     postCamera();
   }
+
+  let cogScreen = $derived.by(() => {
+    if (!simParams.showCenterOfGravity) return null;
+    const canvas = document.querySelector('canvas');
+    if (!canvas || canvas.width === 0) return null;
+    const baseZoom = Math.min(canvas.width, canvas.height) * 0.5;
+    const worldScale = 1 / (baseZoom * zoom);
+    const sx = (canvas.width / 2 + (cogX - camCenterX) / worldScale) / window.devicePixelRatio;
+    const sy = (canvas.height / 2 + (cogY - camCenterY) / worldScale) / window.devicePixelRatio;
+    return { sx, sy };
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} onmouseup={handleMouseUp} />
@@ -257,19 +286,12 @@
         <Menu size={16} strokeWidth={2.5} />
       {/if}
     </button>
-    {#if simParams.showCenterOfGravity}
-      {@const canvas = document.querySelector('canvas')}
-      {#if canvas}
-        {@const baseZoom = Math.min(canvas.width, canvas.height) * 0.5}
-        {@const worldScale = 1 / (baseZoom * zoom)}
-        {@const sx = (canvas.width / 2 + (cogX - camCenterX) / worldScale) / window.devicePixelRatio}
-        {@const sy = (canvas.height / 2 + (cogY - camCenterY) / worldScale) / window.devicePixelRatio}
-        <div
-          title="Center of gravity"
-          class="pointer-events-none absolute z-10 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-400/70 shadow-[0_0_4px_1px_rgba(45,212,191,0.3)]"
-          style="left:{sx}px;top:{sy}px"
-        ></div>
-      {/if}
+    {#if cogScreen}
+      <div
+        title="Center of gravity"
+        class="pointer-events-none absolute z-10 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal-400/70 shadow-[0_0_4px_1px_rgba(45,212,191,0.3)]"
+        style="left:{cogScreen.sx}px;top:{cogScreen.sy}px"
+      ></div>
     {/if}
     <button
       type="button"

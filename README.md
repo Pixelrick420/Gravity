@@ -16,10 +16,10 @@ engine.
 
 ## Controls
 
-- **Particles** — set the number of particles.
-- **Particle size** — set the draw size.
-- **Speed** — set how fast time runs. Low values give smooth slow motion.
-- **Distribution** — choose the starting layout: uniform disc, star
+- **Particles** - set the number of particles.
+- **Particle size** - set the draw size.
+- **Speed** - set how fast time runs. Low values give smooth slow motion.
+- **Distribution** - choose the starting layout: uniform disc, star
   cluster, spiral galaxy, two clusters, ring, or galaxy crash.
 
 ## Deploy

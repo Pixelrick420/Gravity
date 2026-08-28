@@ -149,11 +149,16 @@
   let lastTouchX = 0;
   let lastTouchY = 0;
   let touchCount = 0;
+  let touchOnButton = false;
 
   function handleTouchStart(e: TouchEvent) {
-    if ((e.target as HTMLElement)?.closest('button, a, input, select, textarea')) return;
-    e.preventDefault();
     touchCount = e.touches.length;
+    if ((e.target as HTMLElement)?.closest('button, a, input, select, textarea')) {
+      touchOnButton = true;
+      return;
+    }
+    touchOnButton = false;
+    e.preventDefault();
     if (touchCount === 1) {
       lastTouchX = e.touches[0].clientX;
       lastTouchY = e.touches[0].clientY;
@@ -167,6 +172,7 @@
   }
 
   function handleTouchMove(e: TouchEvent) {
+    if (touchOnButton) return;
     e.preventDefault();
     const canvas = document.querySelector('canvas');
     if (!canvas) return;
@@ -216,9 +222,10 @@
   }
 
   function handleTouchEnd(e: TouchEvent) {
-    e.preventDefault();
     touchCount = e.touches.length;
     if (touchCount < 2) lastTouchDist = 0;
+    if (touchOnButton) return;
+    e.preventDefault();
   }
 
   let container: HTMLDivElement;
@@ -277,7 +284,7 @@
     <button
       type="button"
       aria-label={panelOpen ? 'Hide controls' : 'Show controls'}
-      class="absolute top-2.5 right-3 z-30 grid size-9 cursor-pointer place-items-center rounded-md border border-edge bg-surface/90 text-ink transition-colors hover:bg-surface-hover"
+      class="absolute top-2.5 right-3 z-30 grid size-9 cursor-pointer place-items-center rounded-md border border-edge bg-surface/90 text-ink transition-colors hover:bg-surface-hover touch-action-manipulation"
       onclick={() => (panelOpen = !panelOpen)}
     >
       {#if panelOpen}
@@ -295,8 +302,9 @@
     {/if}
     <button
       type="button"
-      class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover"
+      class="pointer-events-auto absolute bottom-3 left-3 z-30 cursor-pointer rounded-md border border-edge bg-surface/90 px-2.5 py-1 text-xs text-ink transition-colors hover:bg-surface-hover touch-action-manipulation"
       onclick={recenter}
+      ontouchend={recenter}
     >
       Recenter
     </button>
